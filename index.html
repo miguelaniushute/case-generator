@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>案卷材料生成器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', sans-serif; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 16px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+        
+        .upload-area { border: 3px dashed #667eea; border-radius: 12px; padding: 60px 40px; text-align: center; background: #f8f9ff; cursor: pointer; transition: all 0.3s; margin-bottom: 20px; }
+        .upload-area:hover { border-color: #764ba2; background: #f0f2ff; }
+        .upload-area:active { transform: scale(0.98); }
+        .upload-icon { font-size: 64px; margin-bottom: 15px; }
+        .upload-text { color: #666; font-size: 16px; }
+        .upload-hint { color: #999; font-size: 12px; margin-top: 10px; }
+        
+        #fileInput { display: none; }
+        
+        .file-info { background: #e8f4e8; border-radius: 8px; padding: 15px; margin-bottom: 20px; display: none; }
+        .file-info.show { display: block; }
+        .file-info h3 { color: #2e7d32; font-size: 14px; margin-bottom: 10px; }
+        .file-info ul { color: #555; font-size: 13px; padding-left: 20px; }
+        .file-info li { margin-bottom: 5px; }
+        
+        .preview { background: #f5f5f5; border-radius: 8px; padding: 20px; margin-bottom: 20px; display: none; max-height: 400px; overflow-y: auto; }
+        .preview.show { display: block; }
+        .preview h3 { color: #333; margin-bottom: 15px; }
+        
+        .case-item { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
+        .case-item h4 { color: #333; margin-bottom: 5px; }
+        .case-item p { color: #666; font-size: 13px; margin: 2px 0; }
+        
+        .btn { padding: 16px 32px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 20px; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4); }
+        .btn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+        
+        .progress { margin-top: 20px; display: none; }
+        .progress.show { display: block; }
+        .progress-bar { height: 20px; background: #e0e0e0; border-radius: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(135deg, #667eea, #764ba2); width: 0%; transition: width 0.3s; }
+        .progress-text { text-align: center; margin-top: 10px; color: #666; font-size: 14px; }
+        
+        .success-msg { background: #d4edda; color: #155724; padding: 20px; border-radius: 8px; text-align: center; margin-top: 20px; display: none; }
+        .success-msg.show { display: block; }
+        .success-msg h3 { margin-bottom: 10px; }
+        
+        .help { margin-top: 30px; padding: 20px; background: #fff9e6; border-radius: 8px; }
+        .help h4 { color: #f57c00; margin-bottom: 10px; }
+        .help ul { color: #666; font-size: 13px; padding-left: 20px; }
+        .help li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 案卷材料生成器</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📦</div>
+            <div class="upload-text">点击选择ZIP压缩包上传</div>
+            <div class="upload-hint">包含：Excel表格 + 图片文件夹</div>
+        </div>
+        <input type="file" id="fileInput" accept=".zip">
+        
+        <div class="file-info" id="fileInfo">
+            <h3>📋 已加载文件</h3>
+            <ul id="fileList"></ul>
+        </div>
+        
+        <div class="preview" id="preview">
+            <h3>📊 提取的案件列表</h3>
+            <div id="caseList"></div>
+        </div>
+        
+        <button class="btn" id="generateBtn" disabled>生成封面和目录</button>
+        
+        <div class="progress" id="progress">
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+            <div class="progress-text" id="progressText">准备中...</div>
+        </div>
+        
+        <div class="success-msg" id="successMsg">
+            <h3>✅ 生成完成！</h3>
+            <p>文件已自动下载</p>
+        </div>
+        
+        <div class="help">
+            <h4>💡 使用说明</h4>
+            <ul>
+                <li>上传包含 <strong>Excel表格</strong> 和 <strong>图片文件夹</strong> 的压缩包</li>
+                <li>Excel表格需包含：案卷号、权利人、义务人、坐落、权证号等字段</li>
+                <li>图片命名格式：<code>序号-资料名称-页号.jpg</code></li>
+                <li>系统会自动为每个案件生成封面(Excel)和目录(Word)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let caseData = [];
+        let imageGroups = {};
+        
+        // DOM元素
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileList = document.getElementById('fileList');
+        const preview = document.getElementById('preview');
+        const caseList = document.getElementById('caseList');
+        const generateBtn = document.getElementById('generateBtn');
+        const progress = document.getElementById('progress');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const successMsg = document.getElementById('successMsg');
+        
+        // 事件绑定
+        uploadArea.addEventListener('click', function() {
+            fileInput.click();
+        });
+        
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#764ba2';
+            this.style.background = '#f0f2ff';
+        });
+        
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#667eea';
+            this.style.background = '#f8f9ff';
+        });
+        
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#667eea';
+            this.style.background = '#f8f9ff';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleZip(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                handleZip(this.files[0]);
+            }
+        });
+        
+        generateBtn.addEventListener('click', generateAll);
+        
+        // 处理ZIP文件
+        async function handleZip(file) {
+            if (!file.name.endsWith('.zip')) {
+                alert('请上传ZIP格式压缩包！');
+                return;
+            }
+            
+            fileInfo.classList.add('show');
+            fileList.innerHTML = `<li>📦 ${file.name}</li><li>⏳ 正在解析...</li>`;
+            
+            try {
+                const zip = await JSZip.loadAsync(file);
+                await parseZip(zip);
+                fileList.innerHTML = `<li>✅ 解析完成，已识别 ${caseData.length} 个案件</li>`;
+                generateBtn.disabled = false;
+            } catch (err) {
+                fileList.innerHTML = `<li>❌ 解析失败：${err.message}</li>`;
+                alert('解压失败：' + err.message);
+            }
+        }
+        
+        // 解析ZIP内容
+        async function parseZip(zip) {
+            caseData = [];
+            imageGroups = {};
+            
+            const allFiles = Object.keys(zip.files);
+            console.log('ZIP文件:', allFiles);
+            
+            // 收集图片文件夹
+            const imgFolders = {};
+            
+            for (const filename of allFiles) {
+                if (filename.endsWith('/')) continue;
+                
+                // 图片匹配: 文件夹名/序号-资料名-页号.jpg
+                const imgMatch = filename.match(/^(.+?)\/(\d+)-(.+)-(\d+)\.(jpg|jpeg|png)$/i);
+                if (imgMatch) {
+                    const folder = imgMatch[1];
+                    const seq = parseInt(imgMatch[2]);
+                    const name = imgMatch[3];
+                    const page = parseInt(imgMatch[4]);
+                    
+                    if (!imgFolders[folder]) imgFolders[folder] = [];
+                    imgFolders[folder].push({ seq, name, page, fullPath: filename });
+                }
+            }
+            
+            // 处理图片分组
+            for (const folder of Object.keys(imgFolders)) {
+                const images = imgFolders[folder].sort((a, b) => a.seq - b.seq);
+                const groups = [];
+                let currentName = null, startSeq = null, count = 0;
+                
+                for (const img of images) {
+                    if (img.name !== currentName) {
+                        if (currentName !== null) {
+                            groups.push({ order: groups.length + 1, name: currentName, pages: `${startSeq}-${startSeq + count - 1}` });
+                        }
+                        currentName = img.name;
+                        startSeq = img.seq;
+                        count = 1;
+                    } else {
+                        count++;
+                    }
+                }
+                if (currentName !== null) {
+                    groups.push({ order: groups.length + 1, name: currentName, pages: `${startSeq}-${startSeq + count - 1}` });
+                }
+                
+                imageGroups[folder] = groups;
+            }
+            
+            // 查找Excel文件
+            const excelFiles = allFiles.filter(f => !f.endsWith('/') && (f.endsWith('.xlsx') || f.endsWith('.xls')));
+            
+            // 处理Excel
+            for (const excelFile of excelFiles) {
+                const content = await zip.file(excelFile).async('arraybuffer');
+                const workbook = new ExcelJS.Workbook();
+                
+                try {
+                    await workbook.xlsx.load(content);
+                } catch (err) {
+                    console.error('无法读取Excel:', err);
+                    continue;
+                }
+                
+                const worksheet = workbook.getWorksheet(1);
+                
+                if (!worksheet) {
+                    continue;
+                }
+                
+                console.log('工作表:', worksheet.name);
+                
+                // 找表头和数据
+                worksheet.eachRow((row, rowNum) => {
+                    // 跳过第一行
+                    if (rowNum <= 4) return;
+                    
+                    // 提取单元格
+                    const cells = [];
+                    row.eachCell((cell, colNum) => {
+                        const val = cell.value;
+                        let cellVal = '';
+                        if (typeof val === 'object' && val !== null) {
+                            if (val.result !== undefined) {
+                                cellVal = val.result;
+                            } else if (val.value !== undefined) {
+                                cellVal = val.value;
+                            } else if (val.richText && Array.isArray(val.richText)) {
+                                // 处理richText对象：提取所有text
+                                cellVal = val.richText.map(item => item.text || '').join('');
+                            } else if (val.text !== undefined) {
+                                cellVal = val.text;
+                            }
+                        } else {
+                            cellVal = val;
+                        }
+                        cells.push(String(cellVal || '').trim());
+                    });
+                    
+                    // 案件数据：第6列是案卷号
+                    const caseNumber = cells[5] || '';
+                    
+                    if (!caseNumber || caseNumber.length < 5 || caseNumber.startsWith('案卷号') || !caseNumber.startsWith('京')) {
+                        return;
+                    }
+                    
+                    console.log('案件行:', rowNum, '案卷号:', caseNumber);
+                    
+                    caseData.push({
+                        案卷号: caseNumber,
+                        权利人: cells[7] || '',
+                        义务人: cells[8] || '',
+                        坐落: cells[9] || '',
+                        权证号: cells[6] || '',
+                        folder: null
+                    });
+                });
+            }
+            
+            // 给案件分配图片文件夹
+            const folders = Object.keys(imageGroups);
+            if (folders.length === 1) {
+                const folder = folders[0];
+                for (const c of caseData) {
+                    c.folder = folder;
+                }
+            }
+            
+            console.log('案件列表:', caseData);
+            showPreview();
+        }
+        
+        // 显示预览
+        function showPreview() {
+            preview.classList.add('show');
+            if (caseData.length === 0) {
+                caseList.innerHTML = '<p style="color: #f57c00; padding: 20px;">⚠️ 未识别到案件数据，请检查Excel文件格式</p>';
+                return;
+            }
+            
+            caseList.innerHTML = caseData.map((c, i) => `
+                <div class="case-item">
+                    <h4>${i + 1}. ${c.案卷号}</h4>
+                    <p>权利人：${c.权利人 || '(空)'} | 义务人：${c.义务人 || '(空)'}</p>
+                    <p>坐落：${(c.坐落 || '(空)').substring(0, 30)}${c.坐落 && c.坐落.length > 30 ? '...' : ''}</p>
+                    <p>权证号：${c.权证号 || '(空)'}</p>
+                </div>
+            `).join('');
+        }
+        
+        // 生成所有文件
+        async function generateAll() {
+            if (caseData.length === 0) {
+                alert('没有识别的案件数据！');
+                return;
+            }
+            
+            const btn = generateBtn;
+            btn.disabled = true;
+            progress.classList.add('show');
+            successMsg.classList.remove('show');
+            
+            const outputZip = new JSZip();
+            
+            for (let i = 0; i < caseData.length; i++) {
+                const c = caseData[i];
+                const groups = imageGroups[c.folder] || [];
+                
+                progressText.textContent = `生成中 ${i + 1}/${caseData.length}：${c.案卷号}`;
+                progressFill.style.width = ((i + 1) / caseData.length * 100) + '%';
+                
+                // 生成封面Excel
+                const coverExcel = await generateCoverExcel(c, groups);
+                outputZip.file(`封面——${c.案卷号}.xlsx`, coverExcel);
+                
+                // 生成目录Word
+                const coverWord = await generateCoverWord(c, groups);
+                outputZip.file(`目录——${c.案卷号}.docx`, coverWord);
+                
+                await new Promise(r => setTimeout(r, 100));
+            }
+            
+            progressText.textContent = '打包中...';
+            const blob = await outputZip.generateAsync({ type: 'blob' });
+            saveAs(blob, '案卷材料.zip');
+            
+            progress.classList.remove('show');
+            successMsg.classList.add('show');
+            btn.disabled = false;
+        }
+        
+        // 生成封面Excel
+        async function generateCoverExcel(c, groups) {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Sheet1');
+            
+            // 设置列宽
+            worksheet.columns = [
+                { width: 5.875 },
+                { width: 15.5 },
+                { width: 13.625 },
+                { width: 25.75 },
+                { width: 7.25 },
+                { width: 8.0 },
+                { width: 4.125 }
+            ];
+            
+            // 设置行高
+            worksheet.getRow(1).height = 33;
+            worksheet.getRow(2).height = 252;
+            worksheet.getRow(3).height = 99;
+            worksheet.getRow(4).height = 92.1;
+            worksheet.getRow(5).height = 89.1;
+            worksheet.getRow(6).height = 96;
+            worksheet.getRow(7).height = 62.1;
+            worksheet.getRow(8).height = 41.1;
+            
+            // 合并单元格
+            worksheet.mergeCells('B1:G1');
+            worksheet.mergeCells('C3:G3');
+            worksheet.mergeCells('C4:G4');
+            worksheet.mergeCells('C5:G5');
+            worksheet.mergeCells('C6:D6');
+            worksheet.mergeCells('C8:G8');
+            
+            // 字体样式
+            const font16 = { name: '宋体', size: 16 };
+            const font16Bold = { name: '宋体', size: 16, bold: true };
+            const font14 = { name: '宋体', size: 14 };
+            
+            // 数据填充
+            const row1 = worksheet.getRow(1);
+            row1.getCell('B').value = `案卷号：${c.案卷号}`;
+            row1.getCell('B').font = font16;
+            row1.getCell('B').alignment = { horizontal: 'center', vertical: 'middle' };
+            
+            const row3 = worksheet.getRow(3);
+            row3.getCell('B').value = '坐落：';
+            row3.getCell('B').font = font16Bold;
+            row3.getCell('C').value = c.坐落 || '';
+            row3.getCell('C').font = font16;
+            
+            const row4 = worksheet.getRow(4);
+            row4.getCell('B').value = '权利人：';
+            row4.getCell('B').font = font16Bold;
+            row4.getCell('C').value = c.权利人 || '';
+            row4.getCell('C').font = font16;
+            
+            const row5 = worksheet.getRow(5);
+            row5.getCell('B').value = '权证号：';
+            row5.getCell('B').font = font16Bold;
+            row5.getCell('C').value = c.权证号 || '';
+            row5.getCell('C').font = font16;
+            
+            const row6 = worksheet.getRow(6);
+            row6.getCell('B').value = '义务人：';
+            row6.getCell('B').font = font16Bold;
+            row6.getCell('C').value = c.义务人 || '';
+            row6.getCell('C').font = font16;
+            
+            // 计算页数
+            const totalTypes = groups.length;
+            const totalPages = groups.length > 0 ? parseInt(groups[groups.length - 1].pages.split('-')[1]) : 0;
+            
+            const row7 = worksheet.getRow(7);
+            row7.getCell('E').value = totalTypes;
+            row7.getCell('E').font = font16;
+            row7.getCell('E').alignment = { vertical: 'middle' };
+            row7.getCell('F').value = totalPages;
+            row7.getCell('F').font = font16;
+            row7.getCell('F').alignment = { vertical: 'middle' };
+            
+            const row8 = worksheet.getRow(8);
+            row8.getCell('C').value = c.案卷号;
+            row8.getCell('C').font = font14;
+            row8.getCell('C').alignment = { horizontal: 'center', vertical: 'middle' };
+            
+            // 网格线
+            worksheet.view = { showGridLines: true };
+            
+            return await workbook.xlsx.writeBuffer();
+        }
+        
+        // 生成目录Word
+        async function generateCoverWord(c, groups) {
+            const today = new Date().toISOString().split('T')[0];
+            
+            const colWidths = [2000, 4000, 1600, 1600];
+            const rowHeight = 500;
+            const afterSpacing = 200;
+            const totalRows = 18;
+            
+            const titleFont = 47;
+            const caseFont = 22;
+            const headerFont = 28;
+            const dataFont = 22;
+            
+            function makeCell(text, width, fontSize, bold = false) {
+                const boldTag = bold ? '<w:b/>' : '';
+                return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/>${boldTag}<w:sz w:val="${fontSize}"/></w:rPr><w:t>${text}</w:t></w:r></w:p></w:tc>`;
+            }
+            
+            let rows = '';
+            
+            // 表头
+            rows += `<w:tr><w:trPr><w:trHeight w:val="${rowHeight}" w:hRule="atLeast"/></w:trPr>`;
+            rows += makeCell("顺序号", colWidths[0], headerFont, true);
+            rows += makeCell("资料名称", colWidths[1], headerFont, true);
+            rows += makeCell("页号", colWidths[2], headerFont, true);
+            rows += makeCell("备注", colWidths[3], headerFont, true);
+            rows += '</w:tr>';
+            
+            // 数据行
+            for (const g of groups) {
+                rows += `<w:tr><w:trPr><w:trHeight w:val="${rowHeight}" w:hRule="atLeast"/></w:trPr>`;
+                rows += makeCell(String(g.order), colWidths[0], dataFont);
+                rows += makeCell(g.name, colWidths[1], dataFont);
+                rows += makeCell(g.pages, colWidths[2], dataFont);
+                rows += makeCell('', colWidths[3], dataFont);
+                rows += '</w:tr>';
+            }
+            
+            // 空行
+            const emptyRows = totalRows - 1 - groups.length;
+            for (let i = 0; i < emptyRows; i++) {
+                rows += `<w:tr><w:trPr><w:trHeight w:val="${rowHeight}" w:hRule="atLeast"/></w:trPr>`;
+                rows += '<w:tc><w:tcPr><w:tcW w:w="2000" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p/></w:tc>';
+                rows += '<w:tc><w:tcPr><w:tcW w:w="4000" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p/></w:tc>';
+                rows += '<w:tc><w:tcPr><w:tcW w:w="1600" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p/></w:tc>';
+                rows += '<w:tc><w:tcPr><w:tcW w:w="1600" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p/></w:tc>';
+                rows += '</w:tr>';
+            }
+            
+            const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:body>
+<w:p>
+    <w:pPr><w:jc w:val="center"/><w:spacing w:after="${afterSpacing}"/></w:pPr>
+    <w:r><w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/><w:sz w:val="${titleFont}"/></w:rPr><w:t>卷  内  资  料  目  录</w:t></w:r>
+</w:p>
+<w:p>
+    <w:pPr><w:jc w:val="right"/></w:pPr>
+    <w:r><w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/><w:sz w:val="${caseFont}"/></w:rPr><w:t>案卷号：${c.案卷号}</w:t></w:r>
+</w:p>
+<w:p/>
+<w:tbl>
+<w:tblPr>
+<w:tblW w:w="8630" w:type="dxa"/>
+<w:jc w:val="center"/>
+<w:tblLayout w:type="fixed"/>
+<w:tblBorders>
+<w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+<w:left w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+<w:bottom w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+<w:right w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+<w:insideH w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+<w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/>
+</w:tblBorders>
+</w:tblPr>
+<w:tblGrid>
+<w:gridCol w:w="${colWidths[0]}"/>
+<w:gridCol w:w="${colWidths[1]}"/>
+<w:gridCol w:w="${colWidths[2]}"/>
+<w:gridCol w:w="${colWidths[3]}"/>
+</w:tblGrid>
+${rows}
+</w:tbl>
+<w:p><w:r><w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/><w:sz w:val="24"/></w:rPr><w:t>制作日期：${today}                           第1页，共1页</w:t></w:r></w:p>
+<w:sectPr>
+<w:pgSz w:w="12240" w:h="15840"/>
+<w:pgMar w:top="1440" w:right="1805" w:bottom="1440" w:left="1805"/>
+</w:sectPr>
+</w:body>
+</w:document>`;
+            
+            const zip = new JSZip();
+            zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+            zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+            zip.file('word/document.xml', docXml);
+            zip.file('word/_rels/document.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
+            
+            return await zip.generateAsync({ type: 'blob' });
+        }
+    </script>
+</body>
+</html>
