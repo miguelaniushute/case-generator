@@ -273,9 +273,9 @@
             const totalPages = groups.length > 0 ? parseInt(groups[groups.length - 1].pages.split('-')[1]) : 0;
             worksheet.getRow(7).height = 45;
             worksheet.getRow(7).getCell('E').value = totalTypes > 0 ? totalTypes : '';
-            worksheet.getRow(7).getCell('E').alignment = { vertical: 'middle', horizontal: 'center' };
+            worksheet.getRow(7).getCell('E').alignment = { vertical: 'middle', horizontal: 'left' };
             worksheet.getRow(7).getCell('F').value = totalPages > 0 ? totalPages : '';
-            worksheet.getRow(7).getCell('F').alignment = { vertical: 'middle', horizontal: 'center' };
+            worksheet.getRow(7).getCell('F').alignment = { vertical: 'middle', horizontal: 'left' };
             worksheet.getRow(8).getCell('C').value = c.案卷号;
             
             return await workbook.xlsx.writeBuffer();
