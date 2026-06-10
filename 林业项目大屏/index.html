@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>林业项目管理工作台 - 飞书数据版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg: #0a1628;
+            --card: #0f2744;
+            --border: #1a3a5c;
+            --accent: #00d4aa;
+            --warning: #ff6b35;
+            --danger: #ff3b3b;
+            --text: #e8f4f8;
+            --muted: #6b8cae;
+            --blue: #4a9eff;
+        }
+        
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(0,212,170,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(74,158,255,0.08) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .container { position: relative; z-index: 1; max-width: 1600px; margin: 0 auto; padding: 20px; }
+        
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 30px; background: var(--card); border: 1px solid var(--border);
+            border-radius: 16px; margin-bottom: 20px;
+        }
+        
+        .header h1 { font-size: 28px; font-weight: 600; color: var(--text); }
+        .header-right { text-align: right; }
+        .sync-status { font-size: 12px; color: var(--muted); }
+        .sync-time { font-size: 18px; color: var(--accent); }
+        
+        .feishu-link { 
+            display: inline-block; margin-top: 8px; padding: 6px 16px;
+            background: rgba(0,212,170,0.1); border: 1px solid var(--accent);
+            color: var(--accent); border-radius: 20px; font-size: 12px; text-decoration: none;
+        }
+        .feishu-link:hover { background: var(--accent); color: var(--bg); }
+        
+        .refresh-btn {
+            display: inline-block; margin-left: 8px; padding: 6px 16px;
+            background: rgba(74,158,255,0.1); border: 1px solid var(--blue);
+            color: var(--blue); border-radius: 20px; font-size: 12px; cursor: pointer;
+        }
+        .refresh-btn:hover { background: var(--blue); color: var(--bg); }
+        .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 20px; }
+        
+        .metric-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+            padding: 24px; position: relative; overflow: hidden;
+        }
+        
+        .metric-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+        
+        .metric-card.warning::before { background: linear-gradient(90deg, transparent, var(--warning), transparent); }
+        .metric-card.danger::before { background: linear-gradient(90deg, transparent, var(--danger), transparent); }
+        
+        .metric-label { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+        .metric-value { font-size: 36px; font-weight: 700; margin-bottom: 4px; }
+        .metric-sub { font-size: 13px; color: var(--muted); }
+        
+        .main-content { display: grid; grid-template-columns: 1fr 380px; gap: 20px; }
+        
+        .project-board { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+        
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .section-title { font-size: 18px; font-weight: 600; }
+        
+        .filter-tabs { display: flex; gap: 8px; }
+        .filter-tab {
+            padding: 6px 16px; border-radius: 20px; font-size: 13px; cursor: pointer;
+            background: transparent; border: 1px solid var(--border); color: var(--muted); transition: all 0.2s;
+        }
+        .filter-tab.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+        .filter-tab:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+        
+        .project-list { display: flex; flex-direction: column; gap: 12px; max-height: 520px; overflow-y: auto; padding-right: 8px; }
+        .project-list::-webkit-scrollbar { width: 4px; }
+        .project-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        
+        .project-item {
+            background: rgba(10,22,40,0.6); border: 1px solid var(--border); border-radius: 12px;
+            padding: 16px; transition: all 0.2s;
+        }
+        .project-item:hover { border-color: var(--accent); background: rgba(0,212,170,0.05); }
+        .project-item.warning { border-left: 3px solid var(--warning); }
+        
+        .project-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+        .project-name { font-size: 14px; font-weight: 500; flex: 1; padding-right: 12px; }
+        .project-pm { font-size: 12px; color: var(--blue); background: rgba(74,158,255,0.1); padding: 4px 10px; border-radius: 12px; white-space: nowrap; }
+        
+        .project-bottom { display: flex; justify-content: space-between; align-items: center; }
+        .project-progress { display: flex; align-items: center; gap: 12px; flex: 1; }
+        .progress-bar { flex: 1; height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; max-width: 120px; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--blue)); border-radius: 3px; transition: width 0.3s; }
+        .progress-text { font-size: 13px; color: var(--accent); font-weight: 500; min-width: 45px; }
+        
+        .project-stage { font-size: 12px; padding: 4px 10px; border-radius: 12px; background: rgba(0,212,170,0.1); color: var(--accent); }
+        .project-stage.warning { background: rgba(255,107,53,0.1); color: var(--warning); }
+        .project-amount { font-size: 13px; color: var(--muted); margin-top: 8px; }
+        .project-amount span { color: var(--text); font-weight: 500; }
+        
+        .sidebar { display: flex; flex-direction: column; gap: 20px; }
+        
+        .payment-card, .risk-card, .team-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px;
+        }
+        
+        .payment-ring { display: flex; justify-content: center; margin: 20px 0; }
+        .ring-chart { position: relative; width: 140px; height: 140px; }
+        .ring-chart svg { transform: rotate(-90deg); }
+        .ring-bg { fill: none; stroke: var(--bg); stroke-width: 10; }
+        .ring-fill { fill: none; stroke: url(#paymentGradient); stroke-width: 10; stroke-linecap: round; }
+        .ring-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+        .ring-percent { font-size: 28px; font-weight: 700; color: var(--accent); }
+        .ring-label { font-size: 12px; color: var(--muted); }
+        
+        .payment-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+        .payment-stat { text-align: center; padding: 12px; background: rgba(10,22,40,0.6); border-radius: 12px; }
+        .payment-stat-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+        .payment-stat-value { font-size: 18px; font-weight: 600; }
+        .payment-stat-value.warning { color: var(--warning); }
+        
+        .risk-item { background: rgba(255,59,59,0.08); border: 1px solid rgba(255,59,59,0.2); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+        .risk-badge { font-size: 11px; padding: 3px 8px; border-radius: 6px; background: rgba(255,59,59,0.2); color: var(--danger); font-weight: 600; margin-right: 8px; }
+        .risk-title { font-size: 14px; font-weight: 500; }
+        .risk-desc { font-size: 12px; color: var(--muted); margin-top: 6px; }
+        
+        .team-member { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .team-member:last-child { border-bottom: none; }
+        .team-info { display: flex; align-items: center; gap: 10px; }
+        .team-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--blue)); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--bg); }
+        .team-name { font-size: 13px; }
+        .team-projects { font-size: 11px; color: var(--muted); }
+        .team-count { font-size: 14px; color: var(--accent); font-weight: 500; }
+        
+        .gantt-section { margin-top: 20px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+        .gantt-container { overflow-x: auto; margin-top: 16px; }
+        .gantt { min-width: 100%; display: flex; flex-direction: column; gap: 8px; }
+        .gantt-row { display: flex; align-items: center; height: 28px; }
+        .gantt-label { width: 260px; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 16px; flex-shrink: 0; }
+        .gantt-bar-container { flex: 1; height: 20px; background: var(--bg); border-radius: 4px; position: relative; }
+        .gantt-bar { position: absolute; height: 100%; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--bg); font-weight: 500; }
+        
+        .no-data { text-align: center; padding: 40px; color: var(--muted); }
+        .loading { text-align: center; padding: 40px; color: var(--accent); }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .metric-card, .project-item { animation: fadeIn 0.5s ease-out; }
+        
+        @media (max-width: 1200px) {
+            .main-content { grid-template-columns: 1fr; }
+            .metrics { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <svg width="0" height="0" style="position:absolute;">
+        <defs>
+            <linearGradient id="paymentGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#00d4aa"/>
+                <stop offset="100%" stop-color="#4a9eff"/>
+            </linearGradient>
+        </defs>
+    </svg>
+    
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>🌲 林业项目管理工作台</h1>
+                <div style="font-size: 13px; color: var(--muted); margin-top: 4px;">数据来源：飞书多维表格（实时同步）</div>
+            </div>
+            <div class="header-right">
+                <div class="sync-status">最后同步</div>
+                <div class="sync-time" id="lastSync">加载中...</div>
+                <div style="margin-top: 8px;">
+                    <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
+                    <a href="https://my.feishu.cn/base/ZgrFbKUrPaUewFslBgYcbqfMnnf?table=tbl1H46qTVRqN5VH&view=vew2GVISFV" target="_blank" class="feishu-link">📊 打开飞书表格</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="metrics">
+            <div class="metric-card">
+                <div class="metric-label">📊 项目总数</div>
+                <div class="metric-value" id="totalProjects">0</div>
+                <div class="metric-sub">执行中 <span id="activeProjects">0</span> 个</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">💰 合同总额</div>
+                <div class="metric-value"><span id="totalAmount">0</span>万</div>
+                <div class="metric-sub">已回款 <span id="paidAmount">0</span>万</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">📈 回款率</div>
+                <div class="metric-value"><span id="paymentRate">0</span>%</div>
+                <div class="metric-sub">待回款 <span id="unpaidAmount">0</span>万</div>
+            </div>
+            <div class="metric-card danger" id="riskCard">
+                <div class="metric-label">⚠️ 风险预警</div>
+                <div class="metric-value"><span id="riskCount">0</span></div>
+                <div class="metric-sub">需要重点关注</div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="project-board">
+                <div class="section-header">
+                    <div class="section-title">📋 项目看板</div>
+                    <div class="filter-tabs">
+                        <span class="filter-tab active" data-filter="all">全部</span>
+                        <span class="filter-tab" data-filter="执行">执行中</span>
+                        <span class="filter-tab" data-filter="收尾">收尾</span>
+                        <span class="filter-tab" data-filter="启动">启动</span>
+                    </div>
+                </div>
+                <div class="project-list" id="projectList"><div class="loading">正在加载数据...</div></div>
+            </div>
+            
+            <div class="sidebar">
+                <div class="payment-card">
+                    <div class="section-title">💵 回款进度</div>
+                    <div class="payment-ring">
+                        <div class="ring-chart">
+                            <svg width="140" height="140" viewBox="0 0 140 140">
+                                <circle class="ring-bg" cx="70" cy="70" r="60"/>
+                                <circle class="ring-fill" id="paymentRing" cx="70" cy="70" r="60"/>
+                            </svg>
+                            <div class="ring-center">
+                                <div class="ring-percent" id="paymentPercent">0%</div>
+                                <div class="ring-label">已回款</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="payment-stats">
+                        <div class="payment-stat">
+                            <div class="payment-stat-label">合同总额</div>
+                            <div class="payment-stat-value" id="statTotal">0万</div>
+                        </div>
+                        <div class="payment-stat">
+                            <div class="payment-stat-label">待回款</div>
+                            <div class="payment-stat-value warning" id="statUnpaid">0万</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="risk-card">
+                    <div class="section-title">⚠️ 风险预警</div>
+                    <div id="riskList"><div class="no-data">暂无风险</div></div>
+                </div>
+                
+                <div class="team-card">
+                    <div class="section-title">👥 人员分布</div>
+                    <div id="teamList"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="gantt-section">
+            <div class="section-title">📅 项目进度甘特图</div>
+            <div class="gantt-container">
+                <div class="gantt" id="ganttChart"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let projects = [];
+        let currentFilter = 'all';
+        let autoRefreshInterval = null;
+        
+        // 从飞书数据文件加载
+        async function loadFromFeishu() {
+            try {
+                const response = await fetch('data.json?' + new Date().getTime());
+                const data = await response.json();
+                projects = data.projects;
+                updateSyncTime(data.last_update);
+                return true;
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                document.getElementById('projectList').innerHTML = '<div class="no-data">数据加载失败，请刷新页面</div>';
+                return false;
+            }
+        }
+        
+        // 更新同步时间
+        function updateSyncTime(timeStr) {
+            document.getElementById('lastSync').textContent = timeStr || '--:--:--';
+        }
+        
+        // 刷新数据
+        async function refreshData() {
+            document.getElementById('projectList').innerHTML = '<div class="loading">正在刷新数据...</div>';
+            await loadFromFeishu();
+            refreshAll();
+        }
+        
+        function calcStats() {
+            const total = projects.length;
+            const active = projects.filter(p => p.stage === "项目执行").length;
+            const totalAmount = projects.reduce((sum, p) => sum + p.amount, 0);
+            const paidAmount = projects.reduce((sum, p) => sum + (p.paid || 0), 0);
+            const unpaidAmount = totalAmount - paidAmount;
+            const paymentRate = totalAmount > 0 ? (paidAmount / totalAmount * 100).toFixed(1) : 0;
+            const riskCount = projects.filter(p => p.risk !== "正常").length;
+            return { total, active, totalAmount, paidAmount, unpaidAmount, paymentRate, riskCount };
+        }
+        
+        function updateMetrics() {
+            const s = calcStats();
+            document.getElementById('totalProjects').textContent = s.total;
+            document.getElementById('activeProjects').textContent = s.active;
+            document.getElementById('totalAmount').textContent = s.totalAmount.toFixed(1);
+            document.getElementById('paidAmount').textContent = s.paidAmount.toFixed(1);
+            document.getElementById('paymentRate').textContent = s.paymentRate;
+            document.getElementById('unpaidAmount').textContent = s.unpaidAmount.toFixed(1);
+            document.getElementById('riskCount').textContent = s.riskCount;
+            
+            document.getElementById('statTotal').textContent = s.totalAmount.toFixed(1) + '万';
+            document.getElementById('statUnpaid').textContent = s.unpaidAmount.toFixed(1) + '万';
+            document.getElementById('paymentPercent').textContent = s.paymentRate + '%';
+            
+            const ring = document.getElementById('paymentRing');
+            const c = 2 * Math.PI * 60;
+            ring.style.strokeDasharray = c;
+            ring.style.strokeDashoffset = c - (s.paymentRate / 100) * c;
+            
+            document.getElementById('riskCard').classList.toggle('danger', s.riskCount > 0);
+        }
+        
+        function updateProjectList() {
+            let filtered = currentFilter === 'all' ? projects : projects.filter(p => p.stage.includes(currentFilter));
+            const list = document.getElementById('projectList');
+            
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="no-data">暂无项目</div>';
+                return;
+            }
+            
+            list.innerHTML = filtered.map(p => {
+                const cls = p.risk !== '正常' ? 'warning' : '';
+                const stageLabel = p.stage === '项目执行' ? '执行中' : p.stage === '项目收尾' ? '收尾' : '启动';
+                return `
+                    <div class="project-item ${cls}">
+                        <div class="project-top">
+                            <div class="project-name">${p.name}</div>
+                            <div class="project-pm">${p.pm}</div>
+                        </div>
+                        <div class="project-bottom">
+                            <div class="project-progress">
+                                <div class="progress-bar"><div class="progress-fill" style="width:${p.progress}%"></div></div>
+                                <span class="progress-text">${p.progress}%</span>
+                            </div>
+                            <span class="project-stage ${cls}">${stageLabel}</span>
+                        </div>
+                        <div class="project-amount">合同: <span>${p.amount.toFixed(2)}万</span> | 已回款: <span>${(p.paid||0).toFixed(2)}万</span></div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function updateRiskList() {
+            const risks = projects.filter(p => p.risk !== '正常');
+            const list = document.getElementById('riskList');
+            if (risks.length === 0) {
+                list.innerHTML = '<div class="no-data">暂无风险 ✅</div>';
+                return;
+            }
+            list.innerHTML = risks.map(p => `
+                <div class="risk-item">
+                    <span class="risk-badge">${p.risk}</span>
+                    <span class="risk-title">${p.pm} - ${p.name.substring(0,15)}...</span>
+                    <div class="risk-desc">${p.risk_desc || '暂无描述'}</div>
+                </div>
+            `).join('');
+        }
+        
+        function updateTeamList() {
+            const team = {};
+            projects.forEach(p => { if (!team[p.pm]) team[p.pm] = 0; team[p.pm]++; });
+            const sorted = Object.entries(team).sort((a, b) => b[1] - a[1]);
+            document.getElementById('teamList').innerHTML = sorted.map(([name, count]) => `
+                <div class="team-member">
+                    <div class="team-info">
+                        <div class="team-avatar">${name.charAt(0)}</div>
+                        <div>
+                            <div class="team-name">${name}</div>
+                            <div class="team-projects">${count}个项目</div>
+                        </div>
+                    </div>
+                    <div class="team-count">${count}</div>
+                </div>
+            `).join('');
+        }
+        
+        function updateGantt() {
+            document.getElementById('ganttChart').innerHTML = projects.slice(0, 8).map(p => {
+                const color = p.risk !== '正常' ? '#ff6b35' : 'linear-gradient(90deg, #00d4aa, #4a9eff)';
+                return `<div class="gantt-row">
+                    <div class="gantt-label" title="${p.name}">${p.name.substring(0,18)}...</div>
+                    <div class="gantt-bar-container">
+                        <div class="gantt-bar" style="left:0;width:${p.progress}%;background:${color}">${p.progress}%</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+        
+        // 筛选
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                currentFilter = this.dataset.filter;
+                updateProjectList();
+            });
+        });
+        
+        function refreshAll() {
+            updateMetrics();
+            updateProjectList();
+            updateRiskList();
+            updateTeamList();
+            updateGantt();
+        }
+        
+        // 自动刷新（每5分钟）
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            autoRefreshInterval = setInterval(refreshData, 5 * 60 * 1000); // 5分钟
+        }
+        
+        // 初始化
+        async function init() {
+            await loadFromFeishu();
+            refreshAll();
+            startAutoRefresh();
+        }
+        
+        init();
+    </script>
+</body>
+</html>
