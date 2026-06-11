@@ -239,29 +239,30 @@ async function parseZip(zip) {
 
 
         function parseOcrFilenames(text) {
-            const filenames = [];
-            const lines = text.split('\n').filter(l => l.trim());
+            // 合并OCR分割的行
+            const mergedText = text.replace(/(登|证|记|申|请|书|合|同|图|平|户|分|房|屋|买|卖|登|不|动|产|申|请|批|书)\s*(?=\d)/g, '$1').replace(/\s*-(?=\d)/g, '-').trim();
             
-            for (const line of lines) {
-                // 清理OCR常见的误识别
-                let cleaned = line.trim()
-                    .replace(/[|Il1][a-zA-Z]/g, '1')
-                    .replace(/[O0]/g, '0')
-                    .replace(/[。.]+$/, '')
-                    .replace(/^[\d.]+\s*/, '')
+            // 匹配文件名：0001-文件名-01jpg 或 0001-文件名
+            const filenamePattern = /(\d+[-_]?.+?)(?:\.(?:png|jpg|jpeg|gif|bmp))?(?=\s+|$)/gi;
+            const matches = mergedText.match(filenamePattern) || [];
+            
+            const filenames = matches.map(match => {
+                // 清理文件名
+                let filename = match.trim()
+                    .replace(/\.(?:png|jpg|jpeg|gif|bmp)$/i, '')
+                    .replace(/[-_]\d+$/, '')
+                    .replace(/[-_]+$/, '')
                     .trim();
                 
-                if (cleaned.length < 2) continue;
+                // 修复OCR常见错误
+                filename = filename
+                    .replace(/([Il1])[a-zA-Z]/g, '$1')
+                    .replace(/[O0]/g, '0')
+                    .replace(/[。.]+$/, '')
+                    .replace(/^[\d.]+\s*/, '');
                 
-                // 去掉扩展名
-                cleaned = cleaned.replace(/\.(?:png|jpg|jpeg|gif|bmp|pdf|doc|docx)$/i, '');
-                // 去掉末尾页码
-                cleaned = cleaned.replace(/[-_]\d+$/, '');
-                
-                if (cleaned.length >= 2 && cleaned.length < 200) {
-                    filenames.push(cleaned);
-                }
-            }
+                return filename.length > 2 ? filename : null;
+            }).filter(Boolean);
             
             return [...new Set(filenames)];
         }
