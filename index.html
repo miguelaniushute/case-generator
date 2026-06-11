@@ -151,6 +151,7 @@ async function parseZip(zip) {
             ocrFilenames = [];
             
             // 首先获取所有文件列表
+            const allFiles = Object.keys(zip.files);
             console.log('ZIP中所有文件:', allFiles);
             
             // 查找所有图片文件进行OCR识别
