@@ -233,7 +233,7 @@ async function parseZip(zip) {
                 if (!worksheet) continue;
                 
                 worksheet.eachRow((row, rowNum) => {
-                    if (rowNum <= 4) return;
+                    if (rowNum <= 1) return;
                     const cells = [];
                     row.eachCell((cell, colNum) => {
                         const val = cell.value;
