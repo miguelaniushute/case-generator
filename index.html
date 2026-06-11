@@ -157,37 +157,55 @@
                 try {
                     await workbook.xlsx.load(content);
                 } catch (err) {
+                    console.log('Excel加载错误:', err.message);
                     continue;
                 }
                 const worksheet = workbook.getWorksheet(1);
+                if (!worksheet && workbook.worksheets && workbook.worksheets[0]) {
+                    worksheet = workbook.worksheets[0];
+                }
                 if (!worksheet) continue;
+                
+                // 使用工作表名称检查
+                console.log('工作表名称:', worksheet.name);
                 
                 worksheet.eachRow((row, rowNum) => {
                     if (rowNum <= 4) return;
-                    const cells = [];
-                    row.eachCell((cell, colNum) => {
-                        const val = cell.value;
-                        let cellVal = '';
-                        if (typeof val === 'object' && val !== null) {
-                            if (val.result !== undefined) cellVal = val.result;
-                            else if (val.value !== undefined) cellVal = val.value;
-                            else if (val.richText && Array.isArray(val.richText)) cellVal = val.richText.map(x => x.text || '').join('');
-                            else if (val.text) cellVal = val.text;
-                        } else {
-                            cellVal = val;
-                        }
-                        cells.push(String(cellVal || '').trim());
-                    });
-                    const caseNumber = cells[5] || '';
-                    if (!caseNumber || caseNumber.length < 5 || caseNumber.startsWith('案卷号') || !caseNumber.startsWith('京')) return;
-                    // 先存储原始权利人文本，稍后解析
-                    caseData.push({
-                        案卷号: caseNumber,
-                        权利人原始: cells[8] || '',  // 原始权利人字段
-                        坐落: cells[9] || '',
-                        权证号: cells[7] || '',
-                        folder: null
-                    });
+                    try {
+                        const cells = [];
+                        row.eachCell((cell, colNum) => {
+                            let cellVal = '';
+                            try {
+                                const val = cell.value;
+                                if (typeof val === 'object' && val !== null) {
+                                    if (val.result !== undefined) cellVal = val.result;
+                                    else if (val.value !== undefined) cellVal = val.value;
+                                    else if (val.richText && Array.isArray(val.richText)) cellVal = val.richText.map(x => x.text || '').join('');
+                                    else if (val.text) cellVal = val.text;
+                                } else {
+                                    cellVal = val;
+                                }
+                            } catch (e) {
+                                console.log('Error reading cell:', e.message);
+                                cellVal = '';
+                            }
+                            cells.push(String(cellVal || '').trim());
+                        });
+                        
+                        const caseNumber = cells[5] || '';
+                        if (!caseNumber || caseNumber.length < 5 || caseNumber.startsWith('案卷号') || !caseNumber.startsWith('京')) return;
+                        
+                        // 先存储原始权利人文本，稍后解析
+                        caseData.push({
+                            案卷号: caseNumber,
+                            权利人原始: cells[8] || '',  // 原始权利人字段
+                            坐落: cells[9] || '',
+                            权证号: cells[7] || '',
+                            folder: null
+                        });
+                    } catch (e) {
+                        console.log('Error processing row', rowNum, ':', e.message);
+                    }
                 });
             }
             
