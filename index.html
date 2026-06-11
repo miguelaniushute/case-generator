@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>案卷材料生成器</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+    <script src="./libs/jszip.min.js"></script>
+    <script src="./libs/FileSaver.min.js"></script>
+    <script src="./libs/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;padding:20px}
@@ -45,11 +46,43 @@
         .help ul{color:#666;font-size:13px;padding-left:20px}
         .help li{margin-bottom:8px}
     </style>
+    <style>
+    .mode-btn{padding:12px 24px;border:2px solid #667eea;border-radius:8px;background:white;color:#667eea;font-size:14px;font-weight:bold;cursor:pointer;transition:all .3s}
+    .mode-btn:hover{background:#f0f2ff}
+    .mode-btn.active{background:#667eea;color:white}
+    .ocr-section{margin-top:20px;padding:20px;background:#e8f5e9;border-radius:8px;display:none}
+    .ocr-section.show{display:block}
+    .btn-small{padding:8px 16px;background:#28a745;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px}
+    .btn-small:hover{background:#218838}
+    .edit-textarea{width:100%;min-height:200px;padding:10px;border:2px solid #667eea;border-radius:8px;font-family:monospace;resize:vertical}
+    </style>
 </head>
 <body>
     <div class="container">
         <h1>📁 案卷材料生成器</h1>
-        <div class="upload-area" id="uploadArea"><div class="upload-icon">📦</div><div class="upload-text">点击选择ZIP压缩包上传</div><div class="upload-hint">包含：Excel表格 + 图片文件夹</div></div>
+        
+        <div style="display:flex; gap:10px; margin-bottom:20px; justify-content:center;">
+            <button class="mode-btn active" id="btnZip" onclick="switchMode('zip')">📦 ZIP模式</button>
+            <button class="mode-btn" id="btnOcr" onclick="switchMode('ocr')">📸 截图识别</button>
+        </div>
+        <div id="ocrSection" class="ocr-section">
+            <h4 style="color:#2e7d32;margin-bottom:10px;">📸 截图识别模式</h4>
+            <p style="color:#666;font-size:13px;margin-bottom:15px;">上传包含文件名列表的截图，自动识别生成目录</p>
+            <div class="upload-area" id="ocrUploadArea" style="border-color:#28a745;background:#f0fff0;">
+                <div class="upload-icon">📷</div>
+                <div class="upload-text">点击上传截图</div>
+                <div class="upload-hint">支持JPG/PNG格式</div>
+            </div>
+            <input type="file" id="ocrFileInput" accept="image/*" style="display:none;">
+            <div id="ocrResult" style="margin-top:15px;display:none;">
+                <h4 style="color:#333;margin-bottom:10px;">识别结果：</h4>
+                <pre id="ocrText" style="background:#f5f5f5;padding:15px;border-radius:8px;max-height:200px;overflow:auto;white-space:pre-wrap;font-size:13px;"></pre>
+                <div style="margin-top:10px;display:flex;gap:10px;">
+                    <button class="btn-small" id="btnEditOcr" onclick="editOcrResult()">✏️ 编辑</button>
+                    <button class="btn-small" id="btnConfirmOcr" onclick="confirmOcrResult()">✅ 确认使用</button>
+                </div>
+            </div>
+        </div><div class="upload-area" id="uploadArea"><div class="upload-icon">📦</div><div class="upload-text">点击选择ZIP压缩包上传</div><div class="upload-hint">包含：Excel表格 + 图片文件夹</div></div>
         <input type="file" id="fileInput" accept=".zip">
         <div class="file-info" id="fileInfo"><h3>📋 已加载文件</h3><ul id="fileList"></ul></div>
         <div class="preview" id="preview"><h3>📊 提取的案件列表</h3><div id="caseList"></div></div>
@@ -60,6 +93,8 @@
     </div>
     <script>
         let caseData = [];
+        let ocrText = "";
+        let currentMode = "zip";
         let imageGroups = {};
         
         const uploadArea = document.getElementById('uploadArea');
@@ -80,6 +115,87 @@
         uploadArea.addEventListener('drop', function(e) { e.preventDefault(); this.style.borderColor = '#667eea'; this.style.background = '#f8f9ff'; const files = e.dataTransfer.files; if (files.length > 0) { handleZip(files[0]); } });
         fileInput.addEventListener('change', function() { if (this.files.length > 0) { handleZip(this.files[0]); } });
         generateBtn.addEventListener('click', generateAll);
+
+        // 模式切换
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('btnZip').classList.toggle('active', mode === 'zip');
+            document.getElementById('btnOcr').classList.toggle('active', mode === 'ocr');
+            document.getElementById('ocrSection').classList.toggle('show', mode === 'ocr');
+            document.querySelector('.upload-area').parentElement.style.display = mode === 'zip' ? 'block' : 'none';
+        }
+
+        // OCR上传事件
+        const ocrUploadArea = document.getElementById('ocrUploadArea');
+        const ocrFileInput = document.getElementById('ocrFileInput');
+        ocrUploadArea.addEventListener('click', () => ocrFileInput.click());
+        ocrUploadArea.addEventListener('dragover', e => { e.preventDefault(); ocrUploadArea.style.borderColor = '#218838'; });
+        ocrUploadArea.addEventListener('dragleave', e => { e.preventDefault(); ocrUploadArea.style.borderColor = '#28a745'; });
+        ocrUploadArea.addEventListener('drop', e => { e.preventDefault(); const files = e.dataTransfer.files; if (files.length > 0) handleOcrImage(files[0]); });
+        ocrFileInput.addEventListener('change', () => { if (ocrFileInput.files.length > 0) handleOcrImage(ocrFileInput.files[0]); });
+
+        // OCR处理
+        async function handleOcrImage(file) {
+            if (!file.type.startsWith('image/')) { alert('请上传图片文件！'); return; }
+            progress.classList.add('show');
+            progressText.textContent = '🔍 正在识别图片文字...';
+            progressFill.style.width = '30%';
+            try {
+                const result = await Tesseract.recognize(file, 'eng+chi', {
+                    logger: m => { if (m.status === 'recognizing text') progressFill.style.width = (30 + m.progress * 60) + '%'; }
+                });
+                ocrText = result.data.text;
+                document.getElementById('ocrText').textContent = ocrText;
+                document.getElementById('ocrResult').style.display = 'block';
+                progressFill.style.width = '100%';
+                progressText.textContent = '✅ 识别完成！';
+                setTimeout(() => progress.classList.remove('show'), 1000);
+            } catch (err) {
+                progress.classList.remove('show');
+                alert('OCR识别失败：' + err.message);
+            }
+        }
+
+        function editOcrResult() {
+            const ocrTextEl = document.getElementById('ocrText');
+            ocrTextEl.outerHTML = '<textarea id="ocrText" class="edit-textarea">' + ocrText + '</textarea>';
+            document.getElementById('btnEditOcr').textContent = '💾 保存';
+            document.getElementById('btnEditOcr').onclick = saveOcrEdit;
+        }
+
+        function saveOcrEdit() {
+            ocrText = document.getElementById('ocrText').value;
+            document.getElementById('ocrText').textContent = ocrText;
+            document.getElementById('btnEditOcr').textContent = '✏️ 编辑';
+            document.getElementById('btnEditOcr').onclick = editOcrResult;
+        }
+
+        function confirmOcrResult() {
+            if (!ocrText.trim()) { alert('请先上传截图进行识别！'); return; }
+            const lines = ocrText.split('\n').filter(l => l.trim());
+            if (lines.length === 0) { alert('未识别到有效内容！'); return; }
+            const groups = [];
+            lines.forEach(line => {
+                const trimmed = line.replace(/^\d+[.:]?\s*/, '').trim();
+                if (trimmed) {
+                    groups.push({ order: groups.length + 1, name: trimmed, pages: '1' });
+                }
+            });
+            if (groups.length > 0) {
+                imageGroups['OCR截图'] = groups;
+                caseData = [{
+                    案卷号: prompt('请输入案卷号：') || '京2026海ZS0000001',
+                    权利人原始: '截图识别',
+                    坐落: '(截图模式)',
+                    权证号: '(OCR模式)',
+                    folder: 'OCR截图'
+                }];
+                showPreview();
+                generateBtn.disabled = false;
+                alert('已识别 ' + groups.length + ' 个文件，请点击「生成封面和目录」');
+            }
+        }
+
 
         function b64ToArrayBuffer(b64) {
             const bin = atob(b64);
@@ -163,7 +279,7 @@
                 if (!worksheet) continue;
                 
                 worksheet.eachRow((row, rowNum) => {
-                    if (rowNum === 1) return; // 只跳过表头
+                    if (rowNum <= 4) return;
                     const cells = [];
                     row.eachCell((cell, colNum) => {
                         const val = cell.value;
@@ -180,10 +296,8 @@
                     });
                     const caseNumber = cells[5] || '';
                     if (!caseNumber || caseNumber.length < 5 || caseNumber.startsWith('案卷号') || !caseNumber.startsWith('京')) return;
-                    const businessNo = cells[1] || '';
                     caseData.push({
                         案卷号: caseNumber,
-                        业务编号: businessNo,
                         权利人: cells[7] || '',
                         义务人: cells[8] || '',
                         坐落: cells[9] || '',
@@ -194,32 +308,9 @@
             }
             
             const folders = Object.keys(imageGroups);
-            // 优先用业务编号匹配文件夹
-            for (const c of caseData) {
-                const businessNo = c.业务编号;
-                if (businessNo) {
-                    for (const folder of folders) {
-                        const folderName = folder.split('/').pop();
-                        if (folder.includes(businessNo) || businessNo.includes(folderName) || folderName.includes(businessNo)) {
-                            c.folder = folder;
-                            break;
-                        }
-                    }
-                }
-                // 如果没有匹配到，尝试用案卷号匹配
-                if (!c.folder) {
-                    for (const folder of folders) {
-                        if (folder.includes(c.案卷号)) {
-                            c.folder = folder;
-                            break;
-                        }
-                    }
-                }
-            }
-            // 如果只有一个文件夹，所有案件都使用它
             if (folders.length === 1) {
                 const folder = folders[0];
-                for (const c of caseData) { if (!c.folder) c.folder = folder; }
+                for (const c of caseData) { c.folder = folder; }
             }
             showPreview();
         }
