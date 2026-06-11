@@ -4,17 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>案卷材料生成器</title>
-    <script src="./libs/jszip.min.js"></script>
-    <script src="./libs/FileSaver.min.js"></script>
-    <script src="./libs/exceljs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
     <style>
-        .mode-btn{padding:12px 24px;border:2px solid #667eea;border-radius:8px;background:white;color:#667eea;font-size:14px;font-weight:bold;cursor:pointer;transition:all .3s}
-        .mode-btn:hover{background:#f0f2ff}
-        .mode-btn.active{background:#667eea;color:white}
-        .btn-small{padding:8px 16px;background:#28a745;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px}
-        .btn-small:hover{background:#218838}
-        .edit-textarea{width:100%;min-height:200px;padding:10px;border:2px solid #667eea;border-radius:8px;font-family:monospace;resize:vertical}
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;padding:20px}
         .container{max-width:900px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
@@ -56,34 +49,8 @@
 <body>
     <div class="container">
         <h1>📁 案卷材料生成器</h1>
-        
-        <!-- 模式切换 -->
-        <div style="display:flex; gap:10px; margin-bottom:20px; justify-content:center;">
-            <button id="modeZipBtn" class="mode-btn active" onclick="switchMode('zip')">📦 ZIP模式</button>
-            <button id="modeOcrBtn" class="mode-btn" onclick="switchMode('ocr')">📸 截图模式</button>
-        </div>
-        
-        <!-- ZIP上传区域 -->
-        <div id="zipMode">
-            <div class="upload-area" id="uploadArea"><div class="upload-icon">📦</div><div class="upload-text">点击选择ZIP压缩包上传</div><div class="upload-hint">包含：Excel表格 + 图片文件夹</div></div>
-            <input type="file" id="fileInput" accept=".zip">
-        </div>
-        
-        <!-- OCR上传区域 -->
-        <div id="ocrMode" style="display:none;">
-            <div class="upload-area" id="ocrUploadArea" style="border-color:#28a745;"><div class="upload-icon">📸</div><div class="upload-text">点击上传截图（包含文件名列表）</div><div class="upload-hint">截取文件列表页面，自动识别文件名</div></div>
-            <input type="file" id="ocrFileInput" accept="image/*">
-            
-            <div id="ocrPreview" style="margin-top:20px; display:none;">
-                <h4 style="color:#333; margin-bottom:10px;">📋 识别的文件名：</h4>
-                <div id="ocrResult" style="background:#f5f5f5; border-radius:8px; padding:15px; max-height:300px; overflow-y:auto; font-family:monospace; white-space:pre-wrap;"></div>
-                <div style="margin-top:10px; display:flex; gap:10px;">
-                    <button class="btn-small" onclick="editOcrResult()">✏️ 编辑</button>
-                    <button class="btn-small" onclick="confirmOcrResult()">✅ 确认使用</button>
-                </div>
-            </div>
-        </div>
-        
+        <div class="upload-area" id="uploadArea"><div class="upload-icon">📦</div><div class="upload-text">点击选择ZIP压缩包上传</div><div class="upload-hint">包含：Excel表格 + 图片文件夹</div></div>
+        <input type="file" id="fileInput" accept=".zip">
         <div class="file-info" id="fileInfo"><h3>📋 已加载文件</h3><ul id="fileList"></ul></div>
         <div class="preview" id="preview"><h3>📊 提取的案件列表</h3><div id="caseList"></div></div>
         <button class="btn" id="generateBtn" disabled>生成封面和目录</button>
@@ -94,13 +61,9 @@
     <script>
         let caseData = [];
         let imageGroups = {};
-        let ocrText = '';
-        let currentMode = 'zip';
         
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
-        const ocrUploadArea = document.getElementById('ocrUploadArea');
-        const ocrFileInput = document.getElementById('ocrFileInput');
         const fileInfo = document.getElementById('fileInfo');
         const fileList = document.getElementById('fileList');
         const preview = document.getElementById('preview');
@@ -110,164 +73,6 @@
         const progressFill = document.getElementById('progressFill');
         const progressText = document.getElementById('progressText');
         const successMsg = document.getElementById('successMsg');
-
-        // 模式切换
-        function switchMode(mode) {
-            currentMode = mode;
-            document.getElementById('modeZipBtn').classList.toggle('active', mode === 'zip');
-            document.getElementById('modeOcrBtn').classList.toggle('active', mode === 'ocr');
-            document.getElementById('zipMode').style.display = mode === 'zip' ? 'block' : 'none';
-            document.getElementById('ocrMode').style.display = mode === 'ocr' ? 'block' : 'none';
-            
-            // 清空状态
-            caseData = [];
-            imageGroups = {};
-            ocrText = '';
-            fileInfo.classList.remove('show');
-            preview.classList.remove('show');
-            generateBtn.disabled = true;
-            document.getElementById('ocrPreview').style.display = 'none';
-        }
-        
-        // OCR模式事件
-        ocrUploadArea.addEventListener('click', function() { ocrFileInput.click(); });
-        ocrUploadArea.addEventListener('dragover', function(e) { e.preventDefault(); this.style.borderColor = '#218838'; this.style.background = '#e8f5e9'; });
-        ocrUploadArea.addEventListener('dragleave', function(e) { e.preventDefault(); this.style.borderColor = '#28a745'; this.style.background = '#f0f2ff'; });
-        ocrUploadArea.addEventListener('drop', function(e) { e.preventDefault(); this.style.borderColor = '#28a745'; this.style.background = '#f0f2ff'; const files = e.dataTransfer.files; if (files.length > 0) { handleOcrImage(files[0]); } });
-        ocrFileInput.addEventListener('change', function() { if (this.files.length > 0) { handleOcrImage(this.files[0]); } });
-        
-        // OCR处理
-        async function handleOcrImage(file) {
-            if (!file.type.startsWith('image/')) {
-                alert('请上传图片文件！');
-                return;
-            }
-            
-            progress.classList.add('show');
-            progressText.textContent = '🔍 正在识别图片文字，请稍候...';
-            progressFill.style.width = '50%';
-            
-            try {
-                const result = await Tesseract.recognize(file, 'eng+chi', {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            progressFill.style.width = (50 + m.progress * 50) + '%';
-                        }
-                    }
-                });
-                
-                ocrText = result.data.text;
-                
-                // 显示识别结果
-                const ocrResult = document.getElementById('ocrResult');
-                ocrResult.textContent = ocrText;
-                document.getElementById('ocrPreview').style.display = 'block';
-                
-                progress.classList.remove('show');
-                
-                // 自动尝试解析
-                parseOcrText();
-                
-            } catch (err) {
-                progress.classList.remove('show');
-                alert('OCR识别失败：' + err.message);
-            }
-        }
-        
-        // 解析OCR文本，提取文件名
-        function parseOcrText() {
-            const lines = ocrText.split('\n').filter(l => l.trim());
-            const filenames = [];
-            
-            // 匹配常见的文件名格式：序号-资料名称-页号.扩展名
-            const filenameRegex = /^(\d+)[\-_\s]*(.+?)[\-_\s]*(\d+)?\.(jpg|jpeg|png|gif|bmp)$/i;
-            // 也匹配纯文件名格式
-            const simpleRegex = /(\d+)[\-_\s]([^\n]+?)(?:[\-_\s](\d+))?\.(jpg|jpeg|png|gif|bmp)/i;
-            
-            for (const line of lines) {
-                const trimmed = line.trim();
-                
-                // 尝试匹配文件名格式
-                let match = trimmed.match(filenameRegex) || trimmed.match(simpleRegex);
-                if (match) {
-                    filenames.push(trimmed);
-                    continue;
-                }
-                
-                // 尝试匹配纯数字开头的文件名
-                if (/^\d+[\-_\s].+\.(jpg|png|jpeg|gif|bmp)$/i.test(trimmed)) {
-                    filenames.push(trimmed);
-                }
-            }
-            
-            if (filenames.length > 0) {
-                // 格式化输出
-                const formatted = filenames.map((f, i) => `${i + 1}. ${f}`).join('\n');
-                document.getElementById('ocrResult').textContent = formatted;
-                ocrText = formatted;
-            }
-        }
-        
-        // 编辑OCR结果
-        function editOcrResult() {
-            const ocrResult = document.getElementById('ocrResult');
-            ocrResult.innerHTML = `<textarea class="edit-textarea" id="ocrEditArea">${ocrResult.textContent}</textarea>`;
-            document.querySelector('#ocrPreview .btn-small:first-child').textContent = '💾 保存';
-            document.querySelector('#ocrPreview .btn-small:first-child').onclick = saveOcrEdit;
-        }
-        
-        // 保存编辑
-        function saveOcrEdit() {
-            const editArea = document.getElementById('ocrEditArea');
-            ocrText = editArea.value;
-            document.getElementById('ocrResult').textContent = ocrText;
-            document.querySelector('#ocrPreview .btn-small:first-child').textContent = '✏️ 编辑';
-            document.querySelector('#ocrPreview .btn-small:first-child').onclick = editOcrResult;
-        }
-        
-        // 确认OCR结果
-        function confirmOcrResult() {
-            const lines = ocrText.split('\n').filter(l => l.trim());
-            
-            if (lines.length === 0) {
-                alert('未识别到有效文件名，请上传包含文件列表的截图！');
-                return;
-            }
-            
-            // 构建imageGroups
-            const groups = [];
-            lines.forEach((line, i) => {
-                const trimmed = line.replace(/^\d+\.?\s*/, '').trim();
-                if (trimmed) {
-                    // 解析文件名：序号-资料名称-页号.jpg
-                    const parts = trimmed.split(/[-_]/);
-                    const name = parts.length > 1 ? parts[1] : trimmed.split('.')[0];
-                    groups.push({
-                        order: groups.length + 1,
-                        name: name.trim(),
-                        pages: (parts[parts.length - 1] || '1').replace(/\.[^.]+$/, '')
-                    });
-                }
-            });
-            
-            if (groups.length > 0) {
-                imageGroups['OCR图片'] = groups;
-                caseData = [{
-                    案卷号: '京2026海ZS0000001',
-                    权利人原始: 'OCR识别',
-                    坐落: '(通过截图识别)',
-                    权证号: '(OCR模式)',
-                    folder: 'OCR图片'
-                }];
-                
-                showPreview();
-                fileInfo.classList.add('show');
-                fileList.innerHTML = `<li>📸 截图识别</li><li>✅ 识别到 ${groups.length} 个文件</li>`;
-                generateBtn.disabled = false;
-            } else {
-                alert('无法解析文件名，请检查截图内容或手动编辑！');
-            }
-        }
 
         uploadArea.addEventListener('click', function() { fileInput.click(); });
         uploadArea.addEventListener('dragover', function(e) { e.preventDefault(); this.style.borderColor = '#764ba2'; this.style.background = '#f0f2ff'; });
@@ -285,22 +90,12 @@
         }
 
         async function handleZip(file) {
-            // 文件大小检查（100MB）
-            const maxSize = 100 * 1024 * 1024;
-            if (file.size > maxSize) {
-                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
-                alert(`文件过大（${sizeMB}MB），请压缩到100MB以下，或拆分成多个ZIP。\n\n建议：\n1. 减小图片文件\n2. 拆分成多个ZIP处理\n3. 使用xlsx格式而非xls`);
-                return;
-            }
-            
             if (!file.name.endsWith('.zip')) {
                 alert('请上传ZIP格式压缩包！');
                 return;
             }
-            
             fileInfo.classList.add('show');
-            const sizeMB = (file.size / 1024 / 1024).toFixed(2);
-            fileList.innerHTML = '<li>📦 ' + file.name + ' (' + sizeMB + 'MB)</li><li>⏳ 正在解析...</li><li>💡 大文件解析可能需要较长时间，请耐心等待...</li>';
+            fileList.innerHTML = '<li>📦 ' + file.name + '</li><li>⏳ 正在解析...</li>';
             try {
                 const zip = await JSZip.loadAsync(file);
                 await parseZip(zip);
@@ -362,62 +157,69 @@
                 try {
                     await workbook.xlsx.load(content);
                 } catch (err) {
-                    console.log('Excel加载错误:', err.message);
                     continue;
                 }
                 const worksheet = workbook.getWorksheet(1);
-                if (!worksheet && workbook.worksheets && workbook.worksheets[0]) {
-                    worksheet = workbook.worksheets[0];
-                }
                 if (!worksheet) continue;
-                
-                // 使用工作表名称检查
-                console.log('工作表名称:', worksheet.name);
                 
                 worksheet.eachRow((row, rowNum) => {
                     if (rowNum <= 4) return;
-                    try {
-                        const cells = [];
-                        row.eachCell((cell, colNum) => {
-                            let cellVal = '';
-                            try {
-                                const val = cell.value;
-                                if (typeof val === 'object' && val !== null) {
-                                    if (val.result !== undefined) cellVal = val.result;
-                                    else if (val.value !== undefined) cellVal = val.value;
-                                    else if (val.richText && Array.isArray(val.richText)) cellVal = val.richText.map(x => x.text || '').join('');
-                                    else if (val.text) cellVal = val.text;
-                                } else {
-                                    cellVal = val;
-                                }
-                            } catch (e) {
-                                console.log('Error reading cell:', e.message);
-                                cellVal = '';
-                            }
-                            cells.push(String(cellVal || '').trim());
-                        });
-                        
-                        const caseNumber = cells[5] || '';
-                        if (!caseNumber || caseNumber.length < 5 || caseNumber.startsWith('案卷号') || !caseNumber.startsWith('京')) return;
-                        
-                        // 先存储原始权利人文本，稍后解析
-                        caseData.push({
-                            案卷号: caseNumber,
-                            权利人原始: cells[8] || '',  // 原始权利人字段
-                            坐落: cells[9] || '',
-                            权证号: cells[7] || '',
-                            folder: null
-                        });
-                    } catch (e) {
-                        console.log('Error processing row', rowNum, ':', e.message);
-                    }
+                    const cells = [];
+                    row.eachCell((cell, colNum) => {
+                        const val = cell.value;
+                        let cellVal = '';
+                        if (typeof val === 'object' && val !== null) {
+                            if (val.result !== undefined) cellVal = val.result;
+                            else if (val.value !== undefined) cellVal = val.value;
+                            else if (val.richText && Array.isArray(val.richText)) cellVal = val.richText.map(x => x.text || '').join('');
+                            else if (val.text) cellVal = val.text;
+                        } else {
+                            cellVal = val;
+                        }
+                        cells.push(String(cellVal || '').trim());
+                    });
+                    const caseNumber = cells[5] || '';
+                    if (!caseNumber || caseNumber.length < 5 || caseNumber.startsWith('案卷号') || !caseNumber.startsWith('京')) return;
+                    const businessNo = cells[1] || '';
+                    caseData.push({
+                        案卷号: caseNumber,
+                        业务编号: businessNo,
+                        权利人: cells[7] || '',
+                        义务人: cells[8] || '',
+                        坐落: cells[9] || '',
+                        权证号: cells[6] || '',
+                        folder: null
+                    });
                 });
             }
             
             const folders = Object.keys(imageGroups);
+            // 优先用业务编号匹配文件夹
+            for (const c of caseData) {
+                const businessNo = c.业务编号;
+                if (businessNo) {
+                    for (const folder of folders) {
+                        const folderName = folder.split('/').pop();
+                        if (folder.includes(businessNo) || businessNo.includes(folderName) || folderName.includes(businessNo)) {
+                            c.folder = folder;
+                            break;
+                        }
+                    }
+                }
+                // 如果没有匹配到，尝试用案卷号匹配
+                if (!c.folder) {
+                    for (const folder of folders) {
+                        if (folder.includes(c.案卷号)) {
+                            c.folder = folder;
+                            break;
+                        }
+                    }
+                }
+            }
+            // 如果只有一个文件夹，所有案件都使用它
             if (folders.length === 1) {
                 const folder = folders[0];
-                for (const c of caseData) { c.folder = folder; }
+                for (const c of caseData) { if (!c.folder) c.folder = folder; }
             }
             showPreview();
         }
@@ -466,69 +268,6 @@
             generateBtn.disabled = false;
         }
 
-        // 解析权利人字段，根据案卷号类型生成不同封面内容
-        function parseRightHolder(案卷号, 权利人文本) {
-            const result = {
-                leftLabel: '权利人',
-                leftValue: '',
-                rightLabel: '义务人',
-                rightValue: ''
-            };
-            
-            if (!权利人文本) return result;
-            
-            // 判断案卷号类型
-            if (案卷号.includes('ZS')) {
-                // ZS类型：原权利人/原义务人 或 转入方/转出方
-                const 原权利人匹配 = 权利人文本.match(/原权利人\[([^\]]+)\]/g);
-                const 原义务人匹配 = 权利人文本.match(/原义务人\[([^\]]+)\]/g);
-                const 转入方匹配 = 权利人文本.match(/转入方\[([^\]]+)\]/g);
-                const 转出方匹配 = 权利人文本.match(/转出方\[([^\]]+)\]/g);
-                
-                if (原权利人匹配 || 原义务人匹配) {
-                    // 原权利人/原义务人格式
-                    if (原权利人匹配) {
-                        result.leftValue = 原权利人匹配.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                    }
-                    if (原义务人匹配) {
-                        result.rightValue = 原义务人匹配.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                    }
-                } else if (转入方匹配 || 转出方匹配) {
-                    // 转入方/转出方格式
-                    if (转入方匹配) {
-                        result.leftValue = 转入方匹配.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                    }
-                    if (转出方匹配) {
-                        result.rightValue = 转出方匹配.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                    }
-                }
-            } else if (案卷号.includes('ZX') || 案卷号.includes('ZM')) {
-                // ZX/ZM类型：抵押权人/抵押人（不识别债务人）
-                const 抵押权人匹配 = 权利人文本.match(/抵押权人\[([^\]]+)\]/g);
-                const 抵押人匹配 = 权利人文本.match(/抵押人\[([^\]]+)\]/g);
-                
-                if (抵押权人匹配) {
-                    result.leftValue = 抵押权人匹配.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                }
-                if (抵押人匹配) {
-                    result.rightValue = 抵押人匹配.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                }
-            } else if (案卷号.includes('CF')) {
-                // CF类型：执行人/被执行人（注意：被执行人不能被执行人匹配捕获）
-                const 执行人匹配 = 权利人文本.match(/(?<!被)执行人\[([^\]]+)\]/g);
-                const 被执行人匹配 = 权利人文本.match(/被执行人\[([^\]]+)\]/g);
-                
-                if (执行人匹配) {
-                    result.leftValue = 执行人匹配.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                }
-                if (被执行人匹配) {
-                    result.rightValue = 被执行人匹配.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                }
-            }
-            
-            return result;
-        }
-
         async function generateCoverExcel(c, groups) {
             const workbook = new ExcelJS.Workbook();
             const templateBuffer = b64ToArrayBuffer('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');
@@ -551,12 +290,9 @@
             
             worksheet.getRow(1).getCell('B').value = '案卷号：' + c.案卷号;
             worksheet.getRow(3).getCell('C').value = c.坐落 || '';
-            
-            // 解析权利人字段，根据案卷号类型生成不同内容
-            const parsed = parseRightHolder(c.案卷号, c.权利人原始);
-            worksheet.getRow(4).getCell('C').value = parsed.leftValue || '';
+            worksheet.getRow(4).getCell('C').value = c.权利人 || '';
             worksheet.getRow(5).getCell('C').value = c.权证号 || '';
-            worksheet.getRow(6).getCell('C').value = parsed.rightValue || '';
+            worksheet.getRow(6).getCell('C').value = c.义务人 || '';
             
             const totalTypes = groups.length;
             const totalPages = groups.length > 0 ? parseInt(groups[groups.length - 1].pages.split('-')[1]) : 0;
