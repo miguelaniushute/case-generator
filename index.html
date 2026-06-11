@@ -232,9 +232,38 @@ async function parseZip(zip) {
             const folders = Object.keys(imageGroups);
             if (folders.length === 1) {
                 const folder = folders[0];
-                for (const c of caseData) { c.folder = folder; }
+                for (const c of caseData) { c.folder = ocrFilenames.length > 0 ? '截图目录' : folder; }
             }
             showPreview();
+        }
+
+
+        function parseOcrFilenames(text) {
+            const filenames = [];
+            const lines = text.split('\n').filter(l => l.trim());
+            
+            for (const line of lines) {
+                // 清理OCR常见的误识别
+                let cleaned = line.trim()
+                    .replace(/[|Il1][a-zA-Z]/g, '1')
+                    .replace(/[O0]/g, '0')
+                    .replace(/[。.]+$/, '')
+                    .replace(/^[\d.]+\s*/, '')
+                    .trim();
+                
+                if (cleaned.length < 2) continue;
+                
+                // 去掉扩展名
+                cleaned = cleaned.replace(/\.(?:png|jpg|jpeg|gif|bmp|pdf|doc|docx)$/i, '');
+                // 去掉末尾页码
+                cleaned = cleaned.replace(/[-_]\d+$/, '');
+                
+                if (cleaned.length >= 2 && cleaned.length < 200) {
+                    filenames.push(cleaned);
+                }
+            }
+            
+            return [...new Set(filenames)];
         }
 
         function showPreview() {
