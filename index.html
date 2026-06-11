@@ -45,19 +45,15 @@
         .help h4{color:#f57c00;margin-bottom:10px}
         .help ul{color:#666;font-size:13px;padding-left:20px}
         .help li{margin-bottom:8px}
-        .ocr-hint{background:#e3f2fd;padding:15px;border-radius:8px;margin-bottom:20px;font-size:13px;color:#1565c0}
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📁 案卷材料生成器</h1>
-        <div class="ocr-hint">
-            💡 <strong>截图识别模式：</strong>上传包含截图的ZIP包，截图包含文件列表，自动OCR识别生成目录！
-        </div>
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📦</div>
             <div class="upload-text">点击选择ZIP压缩包上传</div>
-            <div class="upload-hint">包含：Excel表格 + 截图（文件列表截图）</div>
+            <div class="upload-hint">包含：Excel表格 + 截图（多张）</div>
         </div>
         <input type="file" id="fileInput" accept=".zip">
         <div class="file-info" id="fileInfo"><h3>📋 已加载文件</h3><ul id="fileList"></ul></div>
@@ -65,7 +61,7 @@
         <button class="btn" id="generateBtn" disabled>生成封面和目录</button>
         <div class="progress" id="progress"><div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div><div class="progress-text" id="progressText">准备中...</div></div>
         <div class="success-msg" id="successMsg"><h3>✅ 生成完成！</h3><p>文件已自动下载</p></div>
-        <div class="help"><h4>💡 使用说明</h4><ul><li>上传包含 <strong>Excel表格</strong> 和 <strong>截图</strong> 的压缩包</li><li>截图需包含文件名列表（每个文件名一行或一个区域）</li><li>系统会自动OCR识别截图中的文件名，生成目录</li></ul></div>
+        <div class="help"><h4>💡 使用说明</h4><ul><li>上传包含 <strong>Excel表格</strong> 和 <strong>截图</strong> 的压缩包</li><li>截图需包含文件名列表，系统会自动OCR识别</li><li>支持多张截图，会自动合并识别结果</li></ul></div>
     </div>
     <script>
         let caseData = [];
@@ -130,48 +126,49 @@
             ocrFilenames = [];
             const allFiles = Object.keys(zip.files);
             
-            // 查找ZIP中的图片文件（可能是截图）
+            // 查找所有图片文件（截图）
             const imageFiles = allFiles.filter(f => 
                 !f.endsWith('/') && 
                 /\.(png|jpg|jpeg|gif|bmp)$/i.test(f)
-            );
+            ).sort();
             
-            // 如果有图片，尝试OCR识别
+            console.log('找到', imageFiles.length, '张图片');
+            
+            // 对每张图片进行OCR识别
             if (imageFiles.length > 0) {
-                progressFill.style.width = '10%';
-                progressText.textContent = '检测到截图，正在OCR识别...';
-                
-                // 读取第一个图片进行OCR
-                const screenshotFile = imageFiles[0];
-                const imageData = await zip.file(screenshotFile).async('blob');
-                
-                try {
-                    progressFill.style.width = '20%';
-                    progressText.textContent = 'OCR识别中...';
+                for (let i = 0; i < imageFiles.length; i++) {
+                    const imgFile = imageFiles[i];
+                    progressFill.style.width = 10 + (i / imageFiles.length) * 70;
+                    progressText.textContent = 'OCR识别第 ' + (i + 1) + '/' + imageFiles.length + ' 张图片...';
                     
-                    const result = await Tesseract.recognize(imageData, 'chi_sim+eng', {
-                        logger: m => { 
-                            if (m.status === 'recognizing text') {
-                                const p = 20 + m.progress * 60;
-                                progressFill.style.width = p + '%';
-                                progressText.textContent = 'OCR识别中 ' + Math.round(p) + '%';
+                    try {
+                        const imageData = await zip.file(imgFile).async('blob');
+                        const result = await Tesseract.recognize(imageData, 'chi_sim+eng', {
+                            logger: m => { 
+                                if (m.status === 'recognizing text') {
+                                    const base = 10 + (i / imageFiles.length) * 70;
+                                    const add = (m.progress / imageFiles.length) * 20;
+                                    progressFill.style.width = (base + add) + '%';
+                                }
                             }
-                        }
-                    });
-                    
-                    const ocrText = result.data.text;
-                    console.log('OCR结果:', ocrText);
-                    
-                    // 解析OCR文本，提取文件名
-                    ocrFilenames = parseOcrFilenames(ocrText);
-                    
-                    progressFill.style.width = '85%';
-                    progressText.textContent = '识别到 ' + ocrFilenames.length + ' 个文件名';
-                    
-                } catch (err) {
-                    console.log('OCR失败:', err.message);
-                    progressText.textContent = 'OCR失败，使用文件名...';
+                        });
+                        
+                        const ocrText = result.data.text;
+                        console.log('图片' + (i+1) + ' OCR结果:', ocrText);
+                        
+                        // 解析这张图片的文件名
+                        const filenames = parseOcrFilenames(ocrText);
+                        ocrFilenames = ocrFilenames.concat(filenames);
+                        
+                    } catch (err) {
+                        console.log('图片' + (i+1) + ' OCR失败:', err.message);
+                    }
                 }
+                
+                // 去重
+                ocrFilenames = [...new Set(ocrFilenames)];
+                progressFill.style.width = '85%';
+                progressText.textContent = '识别到 ' + ocrFilenames.length + ' 个文件名';
             }
             
             // 读取Excel
@@ -214,7 +211,6 @@
                         cells.push(String(cellVal || '').trim());
                     });
                     
-                    // 列索引：0=序号, 1=业务编号, 5=案卷号, 6=权证号, 7=权利人, 8=坐落
                     const 案卷号 = cells[5] || '';
                     if (!案卷号 || !案卷号.startsWith('京')) return;
                     
@@ -228,7 +224,6 @@
                 });
             }
             
-            // 如果没有Excel数据
             if (caseData.length === 0) {
                 caseData.push({
                     案卷号: '京2026海ZS0000001',
@@ -254,46 +249,40 @@
             showPreview();
         }
 
-        // 解析OCR文本，提取文件名
         function parseOcrFilenames(text) {
             const filenames = [];
             const lines = text.split('\n').filter(l => l.trim());
             
             for (const line of lines) {
                 const trimmed = line.trim();
+                if (!trimmed) continue;
                 
                 // 清理OCR常见错误
                 let cleaned = trimmed
-                    .replace(/[|Il1][a-zA-Z]/g, '1')  // 数字1误识别
-                    .replace(/[O0]/g, '0')              // 数字0误识别
-                    .replace(/[Ss]/g, 'S')              // S大小写
-                    .replace(/[。.]+$/, '')              // 结尾点号
-                    .replace(/^[\d.]+\s*/, '')          // 开头序号
+                    .replace(/[|Il1][a-zA-Z]/g, '1')
+                    .replace(/[O0]/g, '0')
+                    .replace(/[。.]+$/, '')
+                    .replace(/^[\d.]+\s*/, '')
                     .trim();
                 
                 // 过滤无效内容
                 if (cleaned.length < 2) continue;
                 if (/^(jpg|png|jpeg|gif|bmp)$/i.test(cleaned)) continue;
-                if (/^[\u4e00-\u9fa5]+$/.test(cleaned) && cleaned.length < 4) continue; // 太短的中文
                 
                 // 提取有效的文件名
-                // 匹配：序号-名称.jpg 或 名称.png 等格式
                 const match = cleaned.match(/(\d+[-_]?.+?)(?:\.(?:png|jpg|jpeg|gif|bmp))?$/i);
                 if (match) {
                     let filename = match[1].trim();
-                    // 移除末尾的数字页码
                     filename = filename.replace(/[-_]\d+$/, '');
                     if (filename.length > 0 && filename.length < 100) {
                         filenames.push(filename);
                     }
-                } else if (cleaned.length > 2 && cleaned.length < 50 && /[\u4e00-\u9fa5]/.test(cleaned)) {
-                    // 纯中文文件名
+                } else if (cleaned.length > 2 && cleaned.length < 50) {
                     filenames.push(cleaned);
                 }
             }
             
-            // 去重
-            return [...new Set(filenames)];
+            return filenames;
         }
 
         function showPreview() {
@@ -310,9 +299,8 @@
                     '<h4>' + (i + 1) + '. ' + c.案卷号 + '</h4>' +
                     '<p><strong>权利人：</strong>' + (parsed.leftValue || '(空)') + '</p>' +
                     '<p><strong>义务人：</strong>' + (parsed.rightValue || '(空)') + '</p>' +
-                    '<p><strong>坐落：</strong>' + ((c.坐落 || '(空)').substring(0, 50)) + '</p>' +
                     '<p><strong>识别文件名：</strong>' + groups.length + ' 个</p>' +
-                    '<p style="color:#888;font-size:12px;">' + groups.slice(0, 10).map(g => g.name).join('、') + (groups.length > 10 ? '...' : '') + '</p>' +
+                    '<p style="color:#888;font-size:12px;">' + groups.slice(0, 15).map(g => g.name).join('、') + (groups.length > 15 ? '...' : '') + '</p>' +
                 '</div>';
             }).join('');
         }
