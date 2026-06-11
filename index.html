@@ -45,56 +45,51 @@
         .help h4{color:#f57c00;margin-bottom:10px}
         .help ul{color:#666;font-size:13px;padding-left:20px}
         .help li{margin-bottom:8px}
-    </style>
-    <style>
-    .mode-btn{padding:12px 24px;border:2px solid #667eea;border-radius:8px;background:white;color:#667eea;font-size:14px;font-weight:bold;cursor:pointer;transition:all .3s}
-    .mode-btn:hover{background:#f0f2ff}
-    .mode-btn.active{background:#667eea;color:white}
-    .ocr-section{margin-top:20px;padding:20px;background:#e8f5e9;border-radius:8px;display:none}
-    .ocr-section.show{display:block}
-    .btn-small{padding:8px 16px;background:#28a745;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px}
-    .btn-small:hover{background:#218838}
-    .edit-textarea{width:100%;min-height:200px;padding:10px;border:2px solid #667eea;border-radius:8px;font-family:monospace;resize:vertical}
+        .ocr-info{background:#e3f2fd;padding:15px;border-radius:8px;margin-bottom:20px;font-size:13px;color:#1565c0}
+        .ocr-info strong{color:#0d47a1}
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📁 案卷材料生成器</h1>
-        
-        <div style="display:flex; gap:10px; margin-bottom:20px; justify-content:center;">
-            <button class="mode-btn active" id="btnZip" onclick="switchMode('zip')">📦 ZIP模式</button>
-            <button class="mode-btn" id="btnOcr" onclick="switchMode('ocr')">📸 截图识别</button>
+        <div class="ocr-info">
+            <strong>💡 智能模式：</strong>上传ZIP包后，系统会自动识别图片文件名生成目录，无需手动处理！
         </div>
-        <div id="ocrSection" class="ocr-section">
-            <h4 style="color:#2e7d32;margin-bottom:10px;">📸 截图识别模式</h4>
-            <p style="color:#666;font-size:13px;margin-bottom:15px;">上传包含文件名列表的截图，自动识别生成目录</p>
-            <div class="upload-area" id="ocrUploadArea" style="border-color:#28a745;background:#f0fff0;">
-                <div class="upload-icon">📷</div>
-                <div class="upload-text">点击上传截图</div>
-                <div class="upload-hint">支持JPG/PNG格式</div>
-            </div>
-            <input type="file" id="ocrFileInput" accept="image/*" style="display:none;">
-            <div id="ocrResult" style="margin-top:15px;display:none;">
-                <h4 style="color:#333;margin-bottom:10px;">识别结果：</h4>
-                <pre id="ocrText" style="background:#f5f5f5;padding:15px;border-radius:8px;max-height:200px;overflow:auto;white-space:pre-wrap;font-size:13px;"></pre>
-                <div style="margin-top:10px;display:flex;gap:10px;">
-                    <button class="btn-small" id="btnEditOcr" onclick="editOcrResult()">✏️ 编辑</button>
-                    <button class="btn-small" id="btnConfirmOcr" onclick="confirmOcrResult()">✅ 确认使用</button>
-                </div>
-            </div>
-        </div><div class="upload-area" id="uploadArea"><div class="upload-icon">📦</div><div class="upload-text">点击选择ZIP压缩包上传</div><div class="upload-hint">包含：Excel表格 + 图片文件夹</div></div>
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📦</div>
+            <div class="upload-text">点击选择ZIP压缩包上传</div>
+            <div class="upload-hint">包含：Excel表格 + 图片（或截图）</div>
+        </div>
         <input type="file" id="fileInput" accept=".zip">
-        <div class="file-info" id="fileInfo"><h3>📋 已加载文件</h3><ul id="fileList"></ul></div>
-        <div class="preview" id="preview"><h3>📊 提取的案件列表</h3><div id="caseList"></div></div>
+        <div class="file-info" id="fileInfo">
+            <h3>📋 已加载文件</h3>
+            <ul id="fileList"></ul>
+        </div>
+        <div class="preview" id="preview">
+            <h3>📊 提取的案件列表</h3>
+            <div id="caseList"></div>
+        </div>
         <button class="btn" id="generateBtn" disabled>生成封面和目录</button>
-        <div class="progress" id="progress"><div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div><div class="progress-text" id="progressText">准备中...</div></div>
-        <div class="success-msg" id="successMsg"><h3>✅ 生成完成！</h3><p>文件已自动下载</p></div>
-        <div class="help"><h4>💡 使用说明</h4><ul><li>上传包含 <strong>Excel表格</strong> 和 <strong>图片文件夹</strong> 的压缩包</li><li>Excel表格需包含：案卷号、权利人、义务人、坐落、权证号等字段</li><li>图片命名格式：<code>序号-资料名称-页号.jpg</code></li><li>系统会自动为每个案件生成封面(Excel)和目录(Word)</li></ul></div>
+        <div class="progress" id="progress">
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+            <div class="progress-text" id="progressText">准备中...</div>
+        </div>
+        <div class="success-msg" id="successMsg">
+            <h3>✅ 生成完成！</h3>
+            <p>文件已自动下载</p>
+        </div>
+        <div class="help">
+            <h4>💡 使用说明</h4>
+            <ul>
+                <li>上传包含 <strong>Excel表格</strong> 和 <strong>图片文件夹</strong> 的压缩包</li>
+                <li>如果图片是<strong>截图</strong>（包含文件名列表），系统会自动OCR识别</li>
+                <li>Excel表格需包含：案卷号、权利人、坐落、权证号等字段</li>
+                <li>系统会自动为每个案件生成封面(Excel)和目录(Word)</li>
+            </ul>
+        </div>
     </div>
     <script>
         let caseData = [];
-        let ocrText = "";
-        let currentMode = "zip";
         let imageGroups = {};
         
         const uploadArea = document.getElementById('uploadArea');
@@ -116,102 +111,22 @@
         fileInput.addEventListener('change', function() { if (this.files.length > 0) { handleZip(this.files[0]); } });
         generateBtn.addEventListener('click', generateAll);
 
-        // 模式切换
-        function switchMode(mode) {
-            currentMode = mode;
-            document.getElementById('btnZip').classList.toggle('active', mode === 'zip');
-            document.getElementById('btnOcr').classList.toggle('active', mode === 'ocr');
-            document.getElementById('ocrSection').classList.toggle('show', mode === 'ocr');
-            document.querySelector('.upload-area').parentElement.style.display = mode === 'zip' ? 'block' : 'none';
-        }
-
-        // OCR上传事件
-        const ocrUploadArea = document.getElementById('ocrUploadArea');
-        const ocrFileInput = document.getElementById('ocrFileInput');
-        ocrUploadArea.addEventListener('click', () => ocrFileInput.click());
-        ocrUploadArea.addEventListener('dragover', e => { e.preventDefault(); ocrUploadArea.style.borderColor = '#218838'; });
-        ocrUploadArea.addEventListener('dragleave', e => { e.preventDefault(); ocrUploadArea.style.borderColor = '#28a745'; });
-        ocrUploadArea.addEventListener('drop', e => { e.preventDefault(); const files = e.dataTransfer.files; if (files.length > 0) handleOcrImage(files[0]); });
-        ocrFileInput.addEventListener('change', () => { if (ocrFileInput.files.length > 0) handleOcrImage(ocrFileInput.files[0]); });
-
-        // OCR处理
-        async function handleOcrImage(file) {
-            if (!file.type.startsWith('image/')) { alert('请上传图片文件！'); return; }
-            progress.classList.add('show');
-            progressText.textContent = '🔍 正在识别图片文字...';
-            progressFill.style.width = '30%';
-            try {
-                const result = await Tesseract.recognize(file, 'eng+chi', {
-                    logger: m => { if (m.status === 'recognizing text') progressFill.style.width = (30 + m.progress * 60) + '%'; }
-                });
-                ocrText = result.data.text;
-                document.getElementById('ocrText').textContent = ocrText;
-                document.getElementById('ocrResult').style.display = 'block';
-                progressFill.style.width = '100%';
-                progressText.textContent = '✅ 识别完成！';
-                setTimeout(() => progress.classList.remove('show'), 1000);
-            } catch (err) {
-                progress.classList.remove('show');
-                alert('OCR识别失败：' + err.message);
-            }
-        }
-
-        function editOcrResult() {
-            const ocrTextEl = document.getElementById('ocrText');
-            ocrTextEl.outerHTML = '<textarea id="ocrText" class="edit-textarea">' + ocrText + '</textarea>';
-            document.getElementById('btnEditOcr').textContent = '💾 保存';
-            document.getElementById('btnEditOcr').onclick = saveOcrEdit;
-        }
-
-        function saveOcrEdit() {
-            ocrText = document.getElementById('ocrText').value;
-            document.getElementById('ocrText').textContent = ocrText;
-            document.getElementById('btnEditOcr').textContent = '✏️ 编辑';
-            document.getElementById('btnEditOcr').onclick = editOcrResult;
-        }
-
-        function confirmOcrResult() {
-            if (!ocrText.trim()) { alert('请先上传截图进行识别！'); return; }
-            const lines = ocrText.split('\n').filter(l => l.trim());
-            if (lines.length === 0) { alert('未识别到有效内容！'); return; }
-            const groups = [];
-            lines.forEach(line => {
-                const trimmed = line.replace(/^\d+[.:]?\s*/, '').trim();
-                if (trimmed) {
-                    groups.push({ order: groups.length + 1, name: trimmed, pages: '1' });
-                }
-            });
-            if (groups.length > 0) {
-                imageGroups['OCR截图'] = groups;
-                caseData = [{
-                    案卷号: prompt('请输入案卷号：') || '京2026海ZS0000001',
-                    权利人原始: '截图识别',
-                    坐落: '(截图模式)',
-                    权证号: '(OCR模式)',
-                    folder: 'OCR截图'
-                }];
-                showPreview();
-                generateBtn.disabled = false;
-                alert('已识别 ' + groups.length + ' 个文件，请点击「生成封面和目录」');
-            }
-        }
-
-
-        function b64ToArrayBuffer(b64) {
-            const bin = atob(b64);
-            const len = bin.length;
-            const buf = new Uint8Array(len);
-            for (let i = 0; i < len; i++) buf[i] = bin.charCodeAt(i);
-            return buf.buffer;
-        }
-
         async function handleZip(file) {
+            const maxSize = 100 * 1024 * 1024;
+            if (file.size > maxSize) {
+                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                alert('文件过大（' + sizeMB + 'MB），请压缩到100MB以下');
+                return;
+            }
+            
             if (!file.name.endsWith('.zip')) {
                 alert('请上传ZIP格式压缩包！');
                 return;
             }
+            
             fileInfo.classList.add('show');
-            fileList.innerHTML = '<li>📦 ' + file.name + '</li><li>⏳ 正在解析...</li>';
+            const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+            fileList.innerHTML = '<li>📦 ' + file.name + ' (' + sizeMB + 'MB)</li><li>⏳ 正在解析...</li>';
             try {
                 const zip = await JSZip.loadAsync(file);
                 await parseZip(zip);
@@ -227,91 +142,143 @@
             caseData = [];
             imageGroups = {};
             const allFiles = Object.keys(zip.files);
-            const imgFolders = {};
             
-            for (const filename of allFiles) {
-                if (filename.endsWith('/')) continue;
-                const match = filename.match(/^(.+?)\/(\d+)-(.+)-(\d+)\.(jpg|jpeg|png)$/i);
-                if (match) {
-                    const folder = match[1];
-                    const seq = parseInt(match[2]);
-                    const name = match[3];
-                    const page = parseInt(match[4]);
-                    if (!imgFolders[folder]) imgFolders[folder] = [];
-                    imgFolders[folder].push({ seq: seq, name: name, page: page, fullPath: filename });
-                }
-            }
+            // 查找图片文件（用于OCR识别）
+            const imageFiles = allFiles.filter(f => 
+                !f.endsWith('/') && 
+                /\.(png|jpg|jpeg|gif|bmp)$/i.test(f) &&
+                !f.endsWith('.xlsx') && !f.endsWith('.xls')
+            );
             
-            for (const folder of Object.keys(imgFolders)) {
-                const images = imgFolders[folder].sort((a, b) => a.seq - b.seq);
-                const groups = [];
-                let currentName = null;
-                let startSeq = null;
-                let count = 0;
-                for (const img of images) {
-                    if (img.name !== currentName) {
-                        if (currentName !== null) {
-                            groups.push({ order: groups.length + 1, name: currentName, pages: startSeq + '-' + (startSeq + count - 1) });
+            // OCR识别ZIP中的图片
+            if (imageFiles.length > 0) {
+                progressText.textContent = '检测到图片，正在OCR识别文件名...';
+                progressFill.style.width = '10%';
+                
+                // 读取第一个图片进行OCR
+                const firstImage = imageFiles[0];
+                const imageData = await zip.file(firstImage).async('blob');
+                
+                try {
+                    const result = await Tesseract.recognize(imageData, 'eng+chi', {
+                        logger: m => { 
+                            if (m.status === 'recognizing text') {
+                                const p = 10 + m.progress * 50;
+                                progressFill.style.width = p + '%';
+                                progressText.textContent = 'OCR识别中... ' + Math.round(p) + '%';
+                            }
                         }
-                        currentName = img.name;
-                        startSeq = img.seq;
-                        count = 1;
-                    } else {
-                        count++;
+                    });
+                    
+                    const ocrText = result.data.text;
+                    console.log('OCR结果:', ocrText);
+                    
+                    // 解析OCR文本提取文件名
+                    const lines = ocrText.split('\n').filter(l => l.trim());
+                    const filenames = [];
+                    
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        // 匹配文件名格式：数字-名称-页号.jpg 或 纯数字.png
+                        if (/^\d+[-_]/.test(trimmed) || /^\d+\.(png|jpg|jpeg|gif|bmp)/i.test(trimmed)) {
+                            filenames.push(trimmed);
+                        }
                     }
+                    
+                    if (filenames.length > 0) {
+                        progressText.textContent = '✅ 识别到 ' + filenames.length + ' 个文件名';
+                        progressFill.style.width = '60%';
+                        
+                        // 构建目录
+                        const groups = [];
+                        filenames.forEach((name, i) => {
+                            const parts = name.split(/[-_]/);
+                            const docName = parts.length > 1 ? parts.slice(1).join('-').replace(/\.[^.]+$/, '') : name.replace(/\.[^.]+$/, '');
+                            groups.push({ 
+                                order: groups.length + 1, 
+                                name: docName || '图片' + (i + 1), 
+                                pages: parts[0] || String(i + 1) 
+                            });
+                        });
+                        
+                        imageGroups['截图识别'] = groups;
+                    }
+                } catch (err) {
+                    console.log('OCR失败:', err.message);
+                    progressText.textContent = 'OCR识别失败，使用文件名...';
                 }
-                if (currentName !== null) {
-                    groups.push({ order: groups.length + 1, name: currentName, pages: startSeq + '-' + (startSeq + count - 1) });
-                }
-                imageGroups[folder] = groups;
             }
             
+            // 读取Excel
             const excelFiles = allFiles.filter(f => !f.endsWith('/') && (f.endsWith('.xlsx') || f.endsWith('.xls')));
             for (const excelFile of excelFiles) {
+                progressText.textContent = '读取Excel中...';
+                progressFill.style.width = '70%';
+                
                 const content = await zip.file(excelFile).async('arraybuffer');
                 const workbook = new ExcelJS.Workbook();
                 try {
                     await workbook.xlsx.load(content);
                 } catch (err) {
+                    console.log('Excel加载错误:', err.message);
                     continue;
                 }
-                const worksheet = workbook.getWorksheet(1);
+                
+                const worksheet = workbook.getWorksheet(1) || (workbook.worksheets && workbook.worksheets[0]);
                 if (!worksheet) continue;
                 
                 worksheet.eachRow((row, rowNum) => {
-                    if (rowNum <= 4) return;
+                    if (rowNum <= 1) return;
                     const cells = [];
-                    row.eachCell((cell, colNum) => {
-                        const val = cell.value;
+                    row.eachCell((cell) => {
                         let cellVal = '';
-                        if (typeof val === 'object' && val !== null) {
-                            if (val.result !== undefined) cellVal = val.result;
-                            else if (val.value !== undefined) cellVal = val.value;
-                            else if (val.richText && Array.isArray(val.richText)) cellVal = val.richText.map(x => x.text || '').join('');
-                            else if (val.text) cellVal = val.text;
-                        } else {
-                            cellVal = val;
+                        try {
+                            const val = cell.value;
+                            if (typeof val === 'object' && val !== null) {
+                                if (val.result !== undefined) cellVal = val.result;
+                                else if (val.value !== undefined) cellVal = val.value;
+                                else if (val.richText && Array.isArray(val.richText)) cellVal = val.richText.map(x => x.text || '').join('');
+                                else if (val.text) cellVal = val.text;
+                            } else {
+                                cellVal = val;
+                            }
+                        } catch (e) {
+                            cellVal = '';
                         }
                         cells.push(String(cellVal || '').trim());
                     });
-                    const caseNumber = cells[5] || '';
-                    if (!caseNumber || caseNumber.length < 5 || caseNumber.startsWith('案卷号') || !caseNumber.startsWith('京')) return;
+                    
+                    // 列索引：0=序号, 1=业务编号, 5=案卷号, 6=权证号, 7=权利人, 8=坐落
+                    const 案卷号 = cells[5] || '';
+                    if (!案卷号 || !案卷号.startsWith('京')) return;
+                    
                     caseData.push({
-                        案卷号: caseNumber,
-                        权利人: cells[7] || '',
-                        义务人: cells[8] || '',
-                        坐落: cells[9] || '',
+                        案卷号: 案卷号,
+                        权利人原始: cells[7] || '',
+                        坐落: cells[8] || '',
                         权证号: cells[6] || '',
-                        folder: null
+                        业务编号: cells[1] || '',
+                        folder: '截图识别'
                     });
                 });
             }
             
-            const folders = Object.keys(imageGroups);
-            if (folders.length === 1) {
-                const folder = folders[0];
-                for (const c of caseData) { c.folder = folder; }
+            // 如果没有Excel数据，创建默认
+            if (caseData.length === 0) {
+                caseData.push({
+                    案卷号: '京2026海ZS0000001',
+                    权利人原始: '自动识别',
+                    坐落: '(OCR截图模式)',
+                    权证号: '(自动识别)',
+                    业务编号: '',
+                    folder: '截图识别'
+                });
             }
+            
+            progressFill.style.width = '100%';
+            progressText.textContent = '解析完成！';
+            setTimeout(() => progress.classList.remove('show'), 500);
+            
             showPreview();
         }
 
@@ -323,9 +290,11 @@
             }
             caseList.innerHTML = caseData.map((c, i) =>
                 '<div class="case-item"><h4>' + (i + 1) + '. ' + c.案卷号 + '</h4>' +
-                '<p>权利人：' + (c.权利人 || '(空)') + ' | 义务人：' + (c.义务人 || '(空)') + '</p>' +
-                '<p>坐落：' + ((c.坐落 || '(空)').substring(0, 30)) + '</p>' +
-                '<p>权证号：' + (c.权证号 || '(空)') + '</p></div>'
+                '<p>业务编号：' + (c.业务编号 || '(无)') + '</p>' +
+                '<p>权利人：' + (c.权利人原始 || '(空)').substring(0, 50) + '</p>' +
+                '<p>坐落：' + ((c.坐落 || '(空)').substring(0, 50)) + '</p>' +
+                '<p>权证号：' + (c.权证号 || '(空)') + '</p>' +
+                '<p>目录图片：' + (imageGroups['截图识别'] ? imageGroups['截图识别'].length + ' 张' : '(无)') + '</p></div>'
             ).join('');
         }
 
@@ -341,7 +310,7 @@
             
             for (let i = 0; i < caseData.length; i++) {
                 const c = caseData[i];
-                const groups = imageGroups[c.folder] || [];
+                const groups = imageGroups[c.folder] || imageGroups['截图识别'] || [];
                 progressText.textContent = '生成中 ' + (i + 1) + '/' + caseData.length + '：' + c.案卷号;
                 progressFill.style.width = ((i + 1) / caseData.length * 100) + '%';
                 const coverExcel = await generateCoverExcel(c, groups);
@@ -359,102 +328,99 @@
             generateBtn.disabled = false;
         }
 
+        function parseRightHolder(案卷号, 权利人文本) {
+            const result = { leftLabel: '权利人', leftValue: '', rightLabel: '义务人', rightValue: '' };
+            if (!权利人文本) return result;
+            
+            if (案卷号.includes('ZS')) {
+                const 原权利人 = 权利人文本.match(/原权利人\[([^\]]+)\]/g);
+                const 原义务人 = 权利人文本.match(/原义务人\[([^\]]+)\]/g);
+                const 转入方 = 权利人文本.match(/转入方\[([^\]]+)\]/g);
+                const 转出方 = 权利人文本.match(/转出方\[([^\]]+)\]/g);
+                
+                if (原权利人 || 原义务人) {
+                    if (原权利人) result.leftValue = 原权利人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                    if (原义务人) result.rightValue = 原义务人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                } else if (转入方 || 转出方) {
+                    if (转入方) result.leftValue = 转入方.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                    if (转出方) result.rightValue = 转出方.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                }
+            } else if (案卷号.includes('ZX') || 案卷号.includes('ZM')) {
+                const 抵押权人 = 权利人文本.match(/抵押权人\[([^\]]+)\]/g);
+                const 抵押人 = 权利人文本.match(/抵押人\[([^\]]+)\]/g);
+                if (抵押权人) result.leftValue = 抵押权人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                if (抵押人) result.rightValue = 抵押人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+            } else if (案卷号.includes('CF')) {
+                const 执行人 = 权利人文本.match(/(?<!被)执行人\[([^\]]+)\]/g);
+                const 被执行人 = 权利人文本.match(/被执行人\[([^\]]+)\]/g);
+                if (执行人) result.leftValue = 执行人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                if (被执行人) result.rightValue = 被执行人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+            }
+            return result;
+        }
+
         async function generateCoverExcel(c, groups) {
             const workbook = new ExcelJS.Workbook();
-            const templateBuffer = b64ToArrayBuffer('UEsDBAoAAAAAAIdO4kAAAAAAAAAAAAAAAAAJAAAAZG9jUHJvcHMvUEsDBBQAAAAIAIdO4kDOQlwBMQEAADkCAAAQAAAAZG9jUHJvcHMvYXBwLnhtbJ2RwUoDMRCG74LvEHKvaYuIlGyKoOJFLFi9x+xsG9hNQmZcWp/FiwfBN/Dk2yj4GGY3oFvx5G0m/88/30/kfNPUrIWI1ruCTw7GnIEzvrRuVfCb5fnomDMk7UpdewcF3wLyudrfk4voA0SygCxFOCz4mijMhECzhkbjQZJdUiofG01pjSvhq8oaOPXmvgFHYjoeHwnYELgSylH4DuQ5cdbSf0NLbzo+vF1uQwJW8iSE2hpNqaW6tCZ69BWxs42BWoqhKC9Ad+UX2kZUsqVZC4Z8ZGgfUv0pZ3caoYsteKuj1Y5SfGfLSz/XASmqj9fn97fHz6cXKZKe3/pxaB3O9lBNekMado1dQOZIwi7h0lINeFUtdKQ/gCdD4J4h42ac6zUA5ZtDvr5xuvQrW/z8ufoCUEsDBBQAAAAIAIdO4kBx2ZHtYwEAAGoCAAARAAAAZG9jUHJvcHMvY29yZS54bWx9ksFKw0AQhu+C7xD2nuwmtVVDmqKWniwUjCjelt1pG0w2y+5q2qP0BTz4Cj5A8e7btOBbuEna2qIIc9n5//n4Z9ioN8sz5xmUTgvRRb5HkAOCFTwVky66TQbuGXK0oYLTrBDQRXPQqBcfH0VMhqxQMFKFBGVS0I4lCR0y2UVTY2SIsWZTyKn2rENYcVyonBr7VBMsKXukE8ABIR2cg6GcGooroCt3RLRBcrZDyieV1QDOMGSQgzAa+56Pf7wGVK7/HKiVPWeemrm0O23i7rM5a8Sde6bTnbEsS69s1TFsfh/fD69v6lXdVFS3YoDiiLOQKaCmUPGFloUGb9QfRHivXZ0wo9oM7bXHKfDLebx6XXy9L9eLj/Xb52r5EuHfFguu92jowB2bLGz22Cp3rat+MkBxQIK2S05dEiS+H/rnISEPVYKD+Spp08g3Of4ndlxSVUKC0NZJe4+4BcR17sPfEX8DUEsDBBQAAAAIAIdO4kA95ZNdQwEAAIQCAAATAAAAZG9jUHJvcHMvY3VzdG9tLnhtbLWSyU7DMBBA70j8Q+R74iV7laTKVglxAEHpFUWO00ZK7Mh2ChXi33EpZbmCuI01ozdvPJMsn8fB2jOpesFTgB0ELMapaHu+TcHDemVHwFK64W0zCM5ScGAKLLPLi+RWiolJ3TNlGQRXKdhpPS0gVHTHxkY5Js1NphNybLR5yi0UXddTVgk6j4xrSBAKIJ2VFqM9feLAibfY698iW0GPdmqzPkxGN0s+4AerG3XfpuCl8suq8pFvkzoubYxwYcduHNooQogUpFzFef0KrOlYTIDFm9GMflVuDGuvF8P0pLTMygDnde2hwg2x5+dVHoSuh6sc+3UQRnnwiEkCv8oTeNb4o5B7Frq+vzFztjPVxdwP7YbJH34E+cTGxDFLdUjghv6/2Hhnm7IZ6Dw02hzS3Tywk0rvZei9rQm+fwA8Luh0PtkbUEsDBAoAAAAAAIdO4kAAAAAAAAAAAAAAAAADAAAAeGwvUEsDBAoAAAAAAIdO4kAAAAAAAAAAAAAAAAAOAAAAeGwvd29ya3NoZWV0cy9QSwMEFAAAAAgAh07iQLq4Oe0WBAAALQwAABgAAAB4bC93b3Jrc2hlZXRzL3NoZWV0MS54bWyNVl2PozYUfa/U/4D8vhAS8qmQ1Q6EtFIrrTq77TNDnAQNYGqcZHZ/fY9tYLATTZOHGI7vvT7H99rc9ee3snAulDc5q0LiuyPi0Cpj+7w6huT7t+TTgjiNSKt9WrCKhuQHbcjnza+/rK+MvzYnSoWDCFUTkpMQ9crzmuxEy7RxWU0rzBwYL1OBV370mprTdK+cysIbj0Yzr0zziugIK/5IDHY45BmNWXYuaSV0EE6LVIB/c8rrpov2tn8o3p6nV2jt+Awoxnqmj+cHN/zKPOOsYQfhZqz0NLVblUtvaegss5tAdzarTPnruf6EwDXEveRFLn4ouR0hKt7jXK9X91o3bla1LAYb5M89KqJzI1gZpyIlm7XKwFfubdb7HLsoU+9wegjJF3+1WxDgyuLvnF6bwbMj0pdnWtBM0D1KhTiyBF4Ye5WGvwMaydjKQEZMM5FfaESLIiTbGaroX7UGHrGA168wfO5WS1TRfOXOnh7ScyEiVvyT78UpJEvSYX+x6280P54EqATueEocdhZFXtE/6IUWmA3J3MQQJSRq9YwVWAr/TpnLqidOmb5pSXqZqbuYI2Kmdq1d2pe8e59x64Pxqn38qfuxy6R1wdi5TNyZZP7BOkHrhLF1Gk/d/+GGiEoPxtZnrjbog2WQH+WCsXXBuf/AHlur7DG29oHr35fi6d1WCZcFuFlzdnVwOLHtuDbwr9fRSVeATOoE26Qn+jTDvk7lVeOv5ii1TAb5oqOMVXIk8KQBeCNIA7PLZrT2LiizrHWJtEXQu8Q2sLWBxAZ2A8CDnl4U6kGyH0/x8Ah9mEHQtOfyZAORDcQ2sLWBxAZ2A8Bgi12SbJc4Vo+QhblJVgMomn6vfWuvtQXKpLcYmxaxtlDXjsro1gYSG9gNAEMODomSM3aRnkcEwcEUpIGhoIlJN9IWC1VYwXRmzsbdrLwqZDVubSCxgd0AMMTg9Eoxi+WjYuBgitHAUExg0o20BY56n52paRF3Fr0gG0hsYDcADEEgorKD8ZHcwMyUowH892St3Y+0xXspxTagvkPyK9LJSbTFO7AbAAZ7lLBkP3u4tuBg8reBSAP+qGcTa+SdzbY18VW5LczcJMakb5283SCWIQTZlkIC/9G6kh2gcUXZQKQBH7dMn5q5yTVuTSa91u0NktwgaEbk0r7y0iJ046C/IyXlR9VgNE7GzpXMDvapR3VP84SeRn26LTyarHCPoA5sPFjhSN7BpytU9h18tkKZ3cEXbS/l9Qug56jTI/0z5ce8apyCHkB5pL7mXHcy+kWwWuHBfOnPuh/S+cIEmjj9hUQjTXG/jNxgMp5NFt0PF/mBMaGnFF254jMV59qp05ry5/wnuniYMZ6jgVZ9c0hqxgVPcyF1nFToREXBq9c3+pv/AFBLAwQKAAAAAACHTuJAAAAAAAAAAAAAAAAACQAAAHhsL3RoZW1lL1BLAwQUAAAACACHTuJAZXAL7+QFAAAkGQAAEwAAAHhsL3RoZW1lL3RoZW1lMS54bWztWUtvGzcQvhfof1jsvZFk6xEZkQNbj7iJnQSRkiJHapfaZcRdLkjKjm5FcuqlQIG06KVAbz0URQM0QINe+mMMJGjTH9Ehd7UiJSp+wIe0iH3xcr8ZfpwZfkOub9x8mlDvGHNBWNrxa9eqvofTgIUkjTr+w9Hgs+u+JyRKQ0RZijv+HAv/5u6nn9xAOzLGCfbAPhU7qOPHUmY7lYoIYBiJayzDKbybMJ4gCY88qoQcnYDfhFa2qtVmJUEk9b0UJeD23mRCAuyNlEt/d+G8T+ExlUINBJQPlWtsWWhsOK0phJiLLuXeMaIdH+YJ2ckIP5W+R5GQ8KLjV/WPX9m9UUE7hRGVG2wNu4H+KewKg3C6pefk0bictF5v1Jt7pX8NoHId12/1m/1m6U8DUBDASnMups/Gfnu/1yiwBij/0+G71+pt1yy84X97jfNeQ/1aeA3K/dfX8INBF6Jo4TUoxzfW8PV6a6tbt/AalOOba/hWda9Xb1l4DYopSadr6Gqjud1drLaETBg9cMLbjfqgtVU4X6KgGsrqUlNMWCo31VqCnjA+AIACUiRJ6sl5hicogCruIkrGnHiHJIqlmgbtYGS8z4cCsTakZvREwEkmO/7tDMG+WHp98/r16bNXp89+P33+/PTZr6Z3y+4ApZFp9+6nb/754Uvv799+fPfi23zqVbww8W9/+ertH3++zz1sJoPWdy/fvnr55vuv//r5hcP7HkdjEz4iCRbeXXziPWAJLFBHx+aDx/xiFqMYEcsCxeDb4bovYwt4d46oC7eP7RA+4qAjLuCt2ROL6zDmM0kcM9+JEwt4xBjdZ9wZgDtqLiPCo1kauSfnMxP3AKFj19xdlFoJ7s8yEFDictmNsUXzPkWpRBFOsfTUOzbF2LG6x4RYcT0iAWeCTaT3mHj7iDhDMiJjq5CWRgckgbzMXQQh1VZsjh55+4y6Vt3DxzYStgWiDvIjTK0w3kIziRKXyxFKqBnwQyRjF8nhnAcmri8kZDrClHn9EAvhsrnHYb1G0u+AhrjTfkTniY3kkkxdPg8RYyayx6bdGCWZCzskaWxiPxdTKFHk3WfSBT9i9g5Rz5AHlG5M9yOCrXSfLQQPQT5NSssCUW9m3JHLW5hZ9Tuc0wnCWmVA3S3RTkh6poLnM1y9djuYX41qux1bcX9zMb3e48S5aw5WVHoT7j+ozT00S+9j2A7rvemjNH+UZv9/L82b9vLVC/JSg0Ge1SkwP2/r03ey8fA9IZQO5ZziQ6HP3wI6TziAQWWnL564vIxlMfypdjJMYOEijrSNx5n8gsh4GKMMzu41XzmJROE6El7GBNwZ9bDTt8LTWXLEwvzOWaup+2UuHgLJ5Xi1UY7DfUHm6GZreY8q3Wu2kb7vLggo24uQMCazSWw7SLQWgypI+nYNQXOQ0Cu7EhZtB4vryv0iVWssgFqZFTgaeXCg6viNOpiAEVyaEMWhylOe6kV2dTKvMtObgmlVQBU+bBQVsMx0W3HduDy1urzUzpFpi4RRbjYJHRndw0SMQlxUpxo9D42L5rq9TKlFT4WiiIVBo3X9fSwum2uwW9UGmppKQVPvpOM3txtQMgHKOv4E7u7wZ5JB7Qh1pEU0gg9ggeT5hr+MsmRcyB4ScR5wLTq5GiREYu5RknR8tfwyDTTVGqK51bZAED5Ycm2QlQ+NHCTdTjKeTHAgzbQbIyrS+SMofK4Vzrfa/PJgZclmkO5hHJ54YzrjDxCUWKNVUwEMiYAPPLU8miGBb5KlkC3rb6UxFbJrfhTUNZSPI5rFqOgoppjncC3lJR39VMbAeCrWDAE1QlI0wnGkGqwZVKubll0j57Cx655tpCJniOayZ1qqorqmW8WsGRZtYCWWl2vyBqtFiKFdmh0+l+5VyW0vtG7lnFB2CQh4GT9H1z1HQzCoLSezqCnG6zKsNLsYtXvHYoFnUDtPkzBUv7lwuxK3skc4p4PBS3V+sFutWhiaLM6VOtL6nxfm/xfY+AmIRw++5M6oFLlAaNDuv1BLAwQUAAAACACHTuJArxuAgToBAADZAQAAFAAAAHhsL3NoYXJlZFN0cmluZ3MueG1sfZHBTsJAEIbvJr5Ds3fZWhEJaZeDiS+gXrxtygpN6LZ2F4I3DZdCJHI26YFEgxgST6ba4Nt0a299BQcMFyDObTLz/98/GbPec9talwXC8biFDks60hi3vYbDmxa6vDg7qCJNSMobtO1xZqFbJlCd7O+ZQkgNtFxYqCWlX8NY2C3mUlHyfMZhcu0FLpXQBk0s/IDRhmgxJt02NnS9gl3qcKTZXodLCwGkw52bDjtd98QUDjFXiJrwqQ1o8BAs6DJEtGwSqlGsHuNi8ZQmc0M3KtlHfHWu68ZR5fjExJKYeGmwMiEqGufjb9jdHIAoi+/UQ5KHb+p5lk1eeuvaWo36KpylSbLLJurn7/d/cTZ1EK9YhMuExWIAvPRzpIavaTLNov7PfA6JjXK1DNot4ddADSe7gf/ejOE15BdQSwMEFAAAAAgAh07iQLgWRnPmAQAAEQQAAA8AAAB4bC93b3JrYm9vay54bWyNU1FvmzAQfp+0/2D5PTGQ0JIopApN0Co1VZVm6fY0OXAEq2Aj2xmppv332RDSVpsmno47f/fd3XfH7OZUFugnSMUED7E7dDACnoiU8UOIv27jQYCR0pSntBAcQvwKCt/MP3+a1UK+7IV4QYaAqxDnWldTQlSSQ0nVUFTAzUsmZEm1ceWBqEoCTVUOoMuCeI5zRUrKOG4ZprIPh8gylsBSJMcSuG5JJBRUm/ZVzirVsaX7ptCFs4b9sK7UMOEEbJ7nkjMEz2cZK2DXaoBoVT3Q0kx6KjAqqNKrlGlIQzwyrqjhLeBjJI9VdGSFeZ2MHA+T+UWWR2kcq8+OQa3e4tZFNeOpqJ9ZqvMQe0HgGNXb2Bdgh1ybRXija9/ykXcczUSGq7GIN10+WTldsyNr70wjnulqysyHvEvdhqFLS2iRPEpkjQW6E9fxJhYBJ32vdGPRUbIQ/4r8IHJGE28wjt14MHYnziCKrsYDfxmP/Gt3ebvy49+d1CfLmF2U7i6gZIkUSmR6mIiStIv76wbcgDTZQPVRmtOaz1q2qY3G5+glmLWB8+gfCkw3SzvKOft/wCdz2gX0BMe7nsDbh/V23RN7v9r+eI77ghfraLnoj19sNovv29W3rgT5p6DE7NwcV7d50v3N8z9QSwMEFAAAAAgAh07iQEnp6WfMCgAAjVYAAA0AAAB4bC9zdHlsZXMueG1s1Vxtb9vWFf4+YP+BYLB9GOZIfNGbazmLZRMo0A0FkgEDtiGQJcomRokuRWV2iwLZ0sxrhwwYsi1bUWBdiyz7sHhbN6xB1iR/JpLtT/sLO/dekvdc6VKiW1GkYyCiqHvOec45z32/5Ma1w76r3Lb9oeMNmqp2tawq9qDjdZ3BXlP9/k1rra4qw6A96LZdb2A31SN7qF7b/PrXNobBkWvf2LftQAEVg2FT3Q+Cg/VSadjZt/vt4VXvwB7ALz3P77cD+OrvlYYHvt3uDolQ3y3p5XK11G87A5VpWO930ijpt/2fjA7WOl7/oB04u47rBEdUl6r0O+uv7w08v73rAtRDvxFphssZ1X2n43tDrxdcBVUlr9dzOvYMQq1a8u3bDolOQ93cGIz6Vj8YKh1vNAiaqhnfUtgvr3fhpqYqzOmW1wUYt5RvKVe+feVK+ZbyGrn+0Rr+9s23Rl7w2hr7oCW+c0tRS5EprFef1suE/vfyEbvAZmZ+wlZnfmQ3UoEwpkGEVq+Wp/zjNwTt167Nd9Kc1j8DlkYv0j7za+hn4u9zwJTC7G5u9LwBT7JehSyTO5sbw7eV220XqolGMtTxXM9XAmA7ZJneGbT7Nitx+uT902cvaan9tj+ESsIEDZPco1UkLNl3gLDkZonZSLbkDLr2oQ0Mq5Pi3Nb45Fevnj9IsiVXW6XFqQP+3m5Ttawy/bdUzUsAvEuiFUUdgV6C6lgtDSdL5jLV0kwztcsJ8QjHAjEQabcsMYEJNCyTUotJuMBgHRhTp6o4F7+awTgls94xgi7TO4FaiANhhTZS2dLSVmhnfvJqFvlLZTJl8gT3KkSz0F4t2T3BGtW9MmuIK9mkbg4rDcuwarRZWlYVEAKJXAsrOTFoZMeTWYPW9dp2eamVfIGHFv1H+LqskM7J3+q8u9AwIWUVn+MYDK215aZtjrFGC3qCpdaCucaqlew9C9O1VOLLnFouLehYbwijVcd140mKYZDxK9zZ3IAJU2D7Awu+KOH1zaMDGL0OYG5HqlyJlVtQes9vH2k67VPSCQw91+kSFHstPOQkNb3VInZ3wx/i8VeVjp5KCHBacIm2Wq1GY0W2dAv+VmPreoX8rcZWq7pjtXZWYwuYUVudrZ2tRtY8DGs65XWGdI/NKIFDlijKV2uNRqOuVev1esM0tNXbr4D9hlFvVHWAUc6aqrP+G2C+VqnUK1pDN7Wsm4DQ/orcrKj5phnZzyXNyH4uaaaDnuxrczXnNCP7uaQZ2c8lzbWM+7yw0ajlnGZkP5c0I/u5pJkuAmVfm2FHJde+GdnPJc3Ifi5pXtEQADafck0zsp9LmpH9r5hmOsmEae2u53dhp1IJd9/Ihhy7tbnh2r0A5pG+s7dPPgPvgMwqvSCArb3Nja7T3vMGbRcuS5FE9EkkYYcTNjObarAPm5HRQmm44ralkz/SAZRI0dBGSgmKh8JJKQDAI9wpJZiTi30EB2TRiaz07a4z6sfOx8NoFjISx8xMxNXEJDMVs2aWa2ZFr7KYp3Uv8kOWQr64njaFSCJdCpFAyhQiiWX4yBeG0/qIJNL5iARS+ogkLupj1xvBJn7Mx5nlb5mXC2Vm/VwoIvF0oUxaXxdUSbkdy4J9N7pOD03Zl6mX0poi1PfFPgvF58EIm1tovDu2694gzewPenELbpIm/LCHDjnA8ROyAU7OUZBLWKgML1lzzb5A3AQhkx5KWCSltA8O3CMLtFPd7BsY4N+2aP/Cv193nb1B38YCb/peYHcCelimDODbURFyhiZwOuR0QAckbLalf9ibhkrPN1wKqNB/L05FMYJKT9xciqCa9BDPpYCKqiJMzBKqIsv/90b9Xdu36EkvXn2sVVcuhBjmGJcMMWrugCO8uQNu06YqIcZCc5ZBg4ViShoEeYM8F2GOLNBQUOGSBxW+zAtqnpBJW3bJokzaNBlkuJ86ytlSVyMjhIJDJCMDGUSAXpQoJkEscHWCHYIoqhBI3gKAK3OimjEbYT07AgU4OCgAmx8o1MkLoHKNFOrHITg8UhDB/CKV1BFCBOeAsqBy88FRtgzTkzo+iGdRIKKODrLJUzu/MdnKfo5GYhfOQXXUtUF2CwoSdW6Q34KChGYkavOg/hQUJOotyNjxEqCEWlRQlCjhmjCjKVQFxyiFAUKhUGJeAuKCZhyjFHrrQsUSZ7y4HQ9GWdyeB2e8uF0PRlncvgdlnAzfClrHMcri9j0o42QIV9BYYpTF7XtwxuG6oLHEKCGuBUWJM17cvgejLG7fgzNe3L4Hoyxu34MybhS378Eoi9v3oIwbufc9Jbztzjbh0f47PA0wtT8NyY/WPsilbD0a7h/25BvxF5NmK1FoIUxL2FCH8wj0/NXMbjqyh1aT4K7Q/EdomT12AACK03WwJVlHy0RLsb7v+c7bsAZFjhPQQysqOl+QJhxoSagYgLLLz7zjFoggqFouPSLkYOBFM5QlZWR4lJ/67YOb9iGcfmGnh+bVpizpUzhw6U7uICqhfmjpVArZjKp7Sn6vMmUpIcEId1EPcqE2GbeK0yxKCSnL1C2ARLti6HzRUTjxIFzcVSvkyfemOn769Ozxe7y3VXZHjgtHyuO+d0bg/t1Xz++Pf/mL8w9/G4mRcRIXY29miE7ihXbO/v14/PRnkQAZsnAB9hKTKYHTP74AI5O/x0bI5JXL0Gff5mH7YfnHkTVTkKSPU01LMnhIBnKIrNFnc2Zk/nPv/MGLya8fRXbIZIsjZG/7mPJq/PlnZycvzx+enH743tm0PJkGcXn6BMG0zcm//np+/EFkkMxIuABsJsChxWmJsyd/Gf/mg8nvjycf/S2SI3MEJMdeyDCFdPLx8fknf4gk6EYFEpGG/+zxpwBucuexaA1eZITNVaT8YOYUKMpGUnQ1HxmUZi0UAjaFQiJHNGnaQiEoGgqJ9NCkeQuFoGgoJPKDPfE5E/oXD8b3YnZoIj1g+U2WLRA5fhZbERmhSxN1dvLn05OHsYjICViYkliZfHpn8qdH4/u/G9+7O/n4i1hW5IUuTRSj/IwsXU3k+dKldXryz+PJnf9G5sAdzAv2rP90DMePnsflxVYDXpklcW38+UlcXmSDLmXD+Z2fv3r6JBYRuaBLuTD+4tnZP+4Cx8dPHp5/8tHZ+59x2oITgk/SSqyXv6GsKXPViFyB6bLEVXOxGpE/hpQ/1cVqRE7BhFOCRuJOXC91kVjwsgiJgsSoxGroqgHnGHsr0jRhEqPC1Yi8M6RtWWJUuBq4Qq2oIafjLFfihgfCICiQ8jMxKlyNyFlDytnEqHA1InMNKXMTo8LViMw1pcyVcCVuWQ2Rs/Ciw4twhasROQtHoiVqEqPC1YjMhYcAJGoSoxKrgTDgVJvS1lESFcgJ62/I+x4R2UwpZxO5wtWInDWlnE2MClcjMteUMjcxKlwNxAc7JWWuJCpAsTAqoAorkHI2MSpcjcjZipSziVHhakTmVqTMTYwKVyMyt0KZy5fYYGgfkFeP0sdc4rE98Ktr99ojN7gZ/9hU+fV36ZN3kP2w1JvObS+gKpoqv36DPNkI4xTgOMzh3xjCg4jwqYx8p6m+s7NVa2zvWPpavbxVXzMNu7LWqGxtr1XM1tb2ttUo6+XWu5AZ8p7W9UPN/HLvQi03Sg32vlZYNNTM9aELb0z1Q2dD8Df4vaaKvjD4BH0JYLP/qROlYfwe2c3/A1BLAwQKAAAAAACHTuJAAAAAAAAAAAAAAAAABgAAAF9yZWxzL1BLAwQUAAAACACHTuJAezh2vP8AAADfAgAACwAAAF9yZWxzLy5yZWxzrZLPSsQwEMbvgu8Q5r5NdxUR2XQvIuxNZH2AmEz/0CYTklntvr1BUSzUugePmfnmm998ZLsb3SBeMaaOvIJ1UYJAb8h2vlHwfHhY3YJIrL3VA3lUcMIEu+ryYvuEg+Y8lNouJJFdfFLQMoc7KZNp0elUUECfOzVFpzk/YyODNr1uUG7K8kbGnx5QTTzF3iqIe7sGcTiFvPlvb6rrzuA9maNDzzMr5FSRnXVskBWMg3yj2L8Q9UUGBjnPcnU+y+93SoesrWYtDUVchZhTitzlXL9xLJnHXE4fiiWgzflA09PnwsGR0Vu0y0g6hCWi6/8kMsfE5JZ5PjVfSHLyLat3UEsDBAoAAAAAAIdO4kAAAAAAAAAAAAAAAAAJAAAAeGwvX3JlbHMvUEsDBBQAAAAIAIdO4kDIbNly7AAAALoCAAAaAAAAeGwvX3JlbHMvd29ya2Jvb2sueG1sLnJlbHOtkk1qwzAQhfeF3kHMvpadllJK5GxKIdvWPYCQxpaJLQnN9Me3r3AhcSCkG28Ebwa9981I293POIgvTNQHr6AqShDoTbC97xR8NK93TyCItbd6CB4VTEiwq29vtm84aM6XyPWRRHbxpMAxx2cpyTgcNRUhos+dNqRRc5apk1Gbg+5QbsryUaalB9RnnmJvFaS9fQDRTDEn/+8d2rY3+BLM54ieL0RI4mnIA4hGpw5ZwZ8uMiPIy/H3q8Y7ndC+c8rbXVIsy9dgNmvCcH4jPK1ilnI+q2sM1ZoM3yEdyCHyieNYIjl3jjDy7MfVv1BLAwQUAAAACACHTuJAqPFac2cBAAANBQAAEwAAAFtDb250ZW50X1R5cGVzXS54bWytlMtOAjEUhvcmvsOkWzNTcGGMYWDhZakk4gPU9sA09JaegvD2nilgAkGBjJtJOu35v//8vQxGK2uKJUTU3tWsX/VYAU56pd2sZh+Tl/KeFZiEU8J4BzVbA7LR8PpqMFkHwIKqHdasSSk8cI6yASuw8gEczUx9tCLRMM54EHIuZsBve707Lr1L4FKZWg02HDzBVCxMKp5X9HvjJIJBVjxuFrasmokQjJYikVO+dOqAUm4JFVXmNdjogDdkg/GjhHbmd8C27o2iiVpBMRYxvQpLNrjychx9QE6Gqr9Vjtj006mWQBoLSxFU0LasQJWBJCEmDT+e/2RLH+Fy+C6jtvpi4gKTt5czDxqWWeZM+MpwbEQE9Z4inUjsTMcQQShsAJI11Z727qgci731kdYG/t1AFj1BTnSpgOdvv3MAWeYE8MvH+af3886ww7Qp9coK7c7g5y1C2n2q6d71vpG2vyy888HzYzb8BlBLAQIUABQAAAAIAIdO4kCo8VpzZwEAAA0FAAATAAAAAAAAAAEAIAAAAG4gAABbQ29udGVudF9UeXBlc10ueG1sUEsBAhQACgAAAAAAh07iQAAAAAAAAAAAAAAAAAYAAAAAAAAAAAAQAAAA1x0AAF9yZWxzL1BLAQIUABQAAAAIAIdO4kB7OHa8/wAAAN8CAAALAAAAAAAAAAEAIAAAAPsdAABfcmVscy8ucmVsc1BLAQIUAAoAAAAAAIdO4kAAAAAAAAAAAAAAAAAJAAAAAAAAAAAAEAAAAAAAAABkb2NQcm9wcy9QSwECFAAUAAAACACHTuJAzkJcATEBAAA5AgAAEAAAAAAAAAABACAAAAAnAAAAZG9jUHJvcHMvYXBwLnhtbFBLAQIUABQAAAAIAIdO4kBx2ZHtYwEAAGoCAAARAAAAAAAAAAEAIAAAAIYBAABkb2NQcm9wcy9jb3JlLnhtbFBLAQIUABQAAAAIAIdO4kA95ZNdQwEAAIQCAAATAAAAAAAAAAEAIAAAABgDAABkb2NQcm9wcy9jdXN0b20ueG1sUEsBAhQACgAAAAAAh07iQAAAAAAAAAAAAAAAAAMAAAAAAAAAAAAQAAAAjAQAAHhsL1BLAQIUAAoAAAAAAIdO4kAAAAAAAAAAAAAAAAAJAAAAAAAAAAAAEAAAACMfAAB4bC9fcmVscy9QSwECFAAUAAAACACHTuJAyGzZcuwAAAC6AgAAGgAAAAAAAAABACAAAABKHwAAeGwvX3JlbHMvd29ya2Jvb2sueG1sLnJlbHNQSwECFAAUAAAACACHTuJArxuAgToBAADZAQAAFAAAAAAAAAABACAAAABhDwAAeGwvc2hhcmVkU3RyaW5ncy54bWxQSwECFAAUAAAACACHTuJASenpZ8wKAACNVgAADQAAAAAAAAABACAAAADgEgAAeGwvc3R5bGVzLnhtbFBLAQIUAAoAAAAAAIdO4kAAAAAAAAAAAAAAAAAJAAAAAAAAAAAAEAAAACUJAAB4bC90aGVtZS9QSwECFAAUAAAACACHTuJAZXAL7+QFAAAkGQAAEwAAAAAAAAABACAAAABMCQAAeGwvdGhlbWUvdGhlbWUxLnhtbFBLAQIUABQAAAAIAIdO4kC4FkZz5gEAABEEAAAPAAAAAAAAAAEAIAAAAM0QAAB4bC93b3JrYm9vay54bWxQSwECFAAKAAAAAACHTuJAAAAAAAAAAAAAAAAADgAAAAAAAAAAABAAAACtBAAAeGwvd29ya3NoZWV0cy9QSwECFAAUAAAACACHTuJAurg57RYEAAAtDAAAGAAAAAAAAAABACAAAADZBAAAeGwvd29ya3NoZWV0cy9zaGVldDEueG1sUEsFBgAAAAARABEABwQAAAYiAAAAAA==');
-            await workbook.xlsx.load(templateBuffer);
+            workbook.xlsx.load = workbook.xlsx.load;
             
-            let worksheet = workbook.getWorksheet(1);
-            if (!worksheet) worksheet = workbook.worksheets && workbook.worksheets[0];
-            if (!worksheet) throw new Error('找不到工作表');
+            const worksheet = workbook.addWorksheet('封面');
+            worksheet.columns = [
+                { width: 15 },
+                { width: 40 },
+                { width: 20 },
+                { width: 15 },
+                { width: 15 },
+                { width: 20 }
+            ];
             
-            if (worksheet.pageSetup) {
-                worksheet.pageSetup.fitToPage = false;
-                worksheet.pageSetup.fitToWidth = 1;
-                worksheet.pageSetup.fitToHeight = 1;
-                worksheet.pageSetup.paperSize = 9;
-            }
+            // 表头
+            worksheet.mergeCells('B1:F1');
+            const titleCell = worksheet.getCell('B1');
+            titleCell.value = '案卷号：' + c.案卷号;
+            titleCell.font = { size: 14, bold: true };
+            titleCell.alignment = { horizontal: 'left' };
             
-            if (worksheet.rowCount > 8) {
-                worksheet.spliceRows(9, worksheet.rowCount - 8);
-            }
+            // 权利人
+            const parsed = parseRightHolder(c.案卷号, c.权利人原始);
+            worksheet.getRow(4).getCell('C').value = parsed.leftValue || '';
             
-            worksheet.getRow(1).getCell('B').value = '案卷号：' + c.案卷号;
-            worksheet.getRow(3).getCell('C').value = c.坐落 || '';
-            worksheet.getRow(4).getCell('C').value = c.权利人 || '';
+            // 权证号
             worksheet.getRow(5).getCell('C').value = c.权证号 || '';
-            worksheet.getRow(6).getCell('C').value = c.义务人 || '';
             
+            // 义务人
+            worksheet.getRow(6).getCell('C').value = parsed.rightValue || '';
+            
+            // 坐落
+            worksheet.getRow(3).getCell('C').value = c.坐落 || '';
+            
+            // 页数统计
             const totalTypes = groups.length;
-            const totalPages = groups.length > 0 ? parseInt(groups[groups.length - 1].pages.split('-')[1]) : 0;
-            worksheet.getRow(7).height = 45;
-            worksheet.getRow(7).getCell('E').value = totalTypes > 0 ? totalTypes : '';
-            worksheet.getRow(7).getCell('E').alignment = { vertical: 'middle', horizontal: 'left' };
-            worksheet.getRow(7).getCell('F').value = totalPages > 0 ? totalPages : '';
-            worksheet.getRow(7).getCell('F').alignment = { vertical: 'middle', horizontal: 'left' };
-            worksheet.getRow(8).height = 63;
-            worksheet.getRow(8).getCell('C').value = c.案卷号;
+            const totalPages = groups.reduce((sum, g) => {
+                const pages = g.pages.split('-');
+                return sum + (pages.length > 1 ? parseInt(pages[1]) - parseInt(pages[0]) + 1 : 1);
+            }, 0);
+            worksheet.getRow(7).getCell('E').value = totalTypes;
+            worksheet.getRow(7).getCell('F').value = totalPages;
+            worksheet.getRow(7).getCell('E').alignment = { vertical: 'top', horizontal: 'center' };
+            worksheet.getRow(7).getCell('F').alignment = { vertical: 'top', horizontal: 'center' };
             
             return await workbook.xlsx.writeBuffer();
         }
 
         async function generateCoverWord(c, groups) {
-            const today = new Date().toISOString().split('T')[0];
+            let docContent = '目  录\n\n';
+            docContent += '案卷号：' + c.案卷号 + '\n\n';
             
-            function makeCell(text, width, fontSize, bold) {
-                const boldTag = bold ? '<w:b/>' : '';
-                return '<w:tc><w:tcPr><w:tcW w:w="' + width + '" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/>' + boldTag + '<w:sz w:val="' + fontSize + '"/></w:rPr><w:t>' + text + '</w:t></w:r></w:p></w:tc>';
+            if (groups && groups.length > 0) {
+                groups.forEach((g, i) => {
+                    docContent += (i + 1) + '. ' + g.name + '    第' + g.pages + '页\n';
+                });
+            } else {
+                docContent += '（暂无目录内容）\n';
             }
             
-            const rowHeight = 500;
-            const headerFontSize = 28;
-            const dataFontSize = 22;
-            const colWidths = [2000, 4000, 1600, 1600];
-            
-            let rows = '<w:tr><w:trPr><w:trHeight w:val="' + rowHeight + '" w:hRule="atLeast"/></w:trPr>' +
-                makeCell("顺序号", colWidths[0], headerFontSize, true) +
-                makeCell("资料名称", colWidths[1], headerFontSize, true) +
-                makeCell("页号", colWidths[2], headerFontSize, true) +
-                makeCell("备注", colWidths[3], headerFontSize, true) +
-                '</w:tr>';
-            
-            for (const g of groups) {
-                rows += '<w:tr><w:trPr><w:trHeight w:val="' + rowHeight + '" w:hRule="atLeast"/></w:trPr>' +
-                    makeCell(String(g.order), colWidths[0], dataFontSize, false) +
-                    makeCell(g.name, colWidths[1], dataFontSize, false) +
-                    makeCell(g.pages, colWidths[2], dataFontSize, false) +
-                    makeCell('', colWidths[3], dataFontSize, false) +
-                    '</w:tr>';
-            }
-            
-            const emptyRows = 17 - 1 - groups.length;
-            for (let i = 0; i < emptyRows; i++) {
-                rows += '<w:tr><w:trPr><w:trHeight w:val="' + rowHeight + '" w:hRule="atLeast"/></w:trPr>' +
-                    '<w:tc><w:tcPr><w:tcW w:w="2000" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p/></w:tc>'.repeat(4) +
-                    '</w:tr>';
-            }
-            
-            const docXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
-                '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="200"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/><w:sz w:val="47"/></w:rPr><w:t>卷  内  资  料  目  录</w:t></w:r></w:p>' +
-                '<w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/><w:sz w:val="22"/></w:rPr><w:t>案卷号：' + c.案卷号 + '</w:t></w:r></w:p>' +
-                '<w:p/>' +
-                '<w:tbl><w:tblPr><w:tblW w:w="8630" w:type="dxa"/><w:jc w:val="center"/><w:tblLayout w:type="fixed"/><w:tblBorders>' +
-                '<w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:left w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:right w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="auto"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
-                '</w:tblBorders></w:tblPr><w:tblGrid>' +
-                '<w:gridCol w:w="' + colWidths[0] + '"/><w:gridCol w:w="' + colWidths[1] + '"/><w:gridCol w:w="' + colWidths[2] + '"/><w:gridCol w:w="' + colWidths[3] + '"/>' +
-                '</w:tblGrid>' + rows +
-                '</w:tbl>' +
-                '<w:p><w:r><w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/><w:sz w:val="24"/></w:rPr><w:t>制作日期：' + today + '                           第1页，共1页</w:t></w:r></w:p>' +
-                '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1805" w:bottom="1440" w:left="1805"/></w:sectPr>' +
-                '</w:body></w:document>';
-            
-            const zip = new JSZip();
-            zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
-            zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
-            zip.file('word/document.xml', docXml);
-            zip.file('word/_rels/document.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
-            
-            return await zip.generateAsync({ type: 'blob' });
+            const blob = new Blob([docContent], { type: 'application/msword' });
+            return blob;
         }
     </script>
 </body>
