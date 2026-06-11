@@ -74,6 +74,54 @@
         const progressText = document.getElementById('progressText');
         const successMsg = document.getElementById('successMsg');
 
+        // 解析权利人：根据案卷号类型解析
+        function parseRightHolder(案卷号, 权利人原始) {
+            const result = { 权利人: '', 义务人: '' };
+            if (!权利人原始) return result;
+            if (案卷号.includes('ZS')) {
+                const 原权利人 = 权利人原始.match(/原权利人\[([^\]]+)\]/g);
+                const 原义务人 = 权利人原始.match(/原义务人\[([^\]]+)\]/g);
+                const 转入方 = 权利人原始.match(/转入方\[([^\]]+)\]/g);
+                const 转出方 = 权利人原始.match(/转出方\[([^\]]+)\]/g);
+                if (原权利人) result.权利人 = 原权利人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                else if (转入方) result.权利人 = 转入方.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                if (原义务人) result.义务人 = 原义务人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                else if (转出方) result.义务人 = 转出方.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+            } else if (案卷号.includes('ZX') || 案卷号.includes('ZM')) {
+                const 抵押权人 = 权利人原始.match(/抵押权人\[([^\]]+)\]/g);
+                const 抵押人 = 权利人原始.match(/抵押人\[([^\]]+)\]/g);
+                if (抵押权人) result.权利人 = 抵押权人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                if (抵押人) result.义务人 = 抵押人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+            } else if (案卷号.includes('CF')) {
+                const 执行人 = 权利人原始.match(/(?<!被)执行人\[([^\]]+)\]/g);
+                const 被执行人 = 权利人原始.match(/被执行人\[([^\]]+)\]/g);
+                if (执行人) result.权利人 = 执行人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                if (被执行人) result.义务人 = 被执行人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+            }
+            return result;
+        }
+
+        // OCR解析文件名
+        function parseOcrFilenames(text) {
+            const filenames = [];
+            const lines = text.split('\n');
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (!line || line.length < 3) continue;
+                // 清理
+                line = line.replace(/[|Il1][a-zA-Z]/g, '1').replace(/[O0]/g, '0').replace(/[。.]+$/, '').replace(/^[\d.]+\s*/, '').trim();
+                if (line.length < 2) continue;
+                // 合并断行
+                if (i + 1 < lines.length && /^[\d]/.test(lines[i + 1].trim())) {
+                    line = line + lines[i + 1].trim();
+                }
+                // 去掉扩展名
+                line = line.replace(/\.(png|jpg|jpeg|gif|bmp)$/i, '').replace(/[-_]\d+$/, '').trim();
+                if (line.length >= 2) filenames.push(line);
+            }
+            return [...new Set(filenames)];
+        }
+
         uploadArea.addEventListener('click', function() { fileInput.click(); });
         uploadArea.addEventListener('dragover', function(e) { e.preventDefault(); this.style.borderColor = '#764ba2'; this.style.background = '#f0f2ff'; });
         uploadArea.addEventListener('dragleave', function(e) { e.preventDefault(); this.style.borderColor = '#667eea'; this.style.background = '#f8f9ff'; });
@@ -107,46 +155,45 @@
             }
         }
 
-                // 解析权利人：根据案卷号类型（ZS/ZX/ZM/CF）解析权利人文本
-        function parseRightHolder(案卷号, 权利人原始) {
-            const result = { 权利人: '', 义务人: '' };
-            if (!权利人原始) return result;
-            
-            if (案卷号.includes('ZS')) {
-                // 转让：原权利人/原义务人 或 转入方/转出方
-                const 原权利人 = 权利人原始.match(/原权利人\[([^\]]+)\]/g);
-                const 原义务人 = 权利人原始.match(/原义务人\[([^\]]+)\]/g);
-                const 转入方 = 权利人原始.match(/转入方\[([^\]]+)\]/g);
-                const 转出方 = 权利人原始.match(/转出方\[([^\]]+)\]/g);
-                
-                if (原权利人) result.权利人 = 原权利人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                else if (转入方) result.权利人 = 转入方.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                
-                if (原义务人) result.义务人 = 原义务人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                else if (转出方) result.义务人 = 转出方.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                
-            } else if (案卷号.includes('ZX') || 案卷号.includes('ZM')) {
-                // 抵押：抵押权人/抵押人
-                const 抵押权人 = 权利人原始.match(/抵押权人\[([^\]]+)\]/g);
-                const 抵押人 = 权利人原始.match(/抵押人\[([^\]]+)\]/g);
-                if (抵押权人) result.权利人 = 抵押权人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                if (抵押人) result.义务人 = 抵押人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                
-            } else if (案卷号.includes('CF')) {
-                // 查封：执行人/被执行人
-                const 执行人 = 权利人原始.match(/(?<!被)执行人\[([^\]]+)\]/g);
-                const 被执行人 = 权利人原始.match(/被执行人\[([^\]]+)\]/g);
-                if (执行人) result.权利人 = 执行人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-                if (被执行人) result.义务人 = 被执行人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
-            }
-            
-            return result;
-        }
-
-async function parseZip(zip) {
+        async function parseZip(zip) {
             caseData = [];
             imageGroups = {};
-            const allFiles = Object.keys(zip.files);
+            const ocrFilenames = [];
+            
+            // 获取所有文件
+            
+            // 查找图片文件
+            const imageFiles = allFiles.filter(f => 
+                !f.endsWith('/') && 
+                /\.(png|jpg|jpeg|gif|bmp)$/i.test(f)
+            ).sort();
+            
+            // OCR识别每张图片
+            for (let i = 0; i < imageFiles.length; i++) {
+                const fileName = imageFiles[i];
+                const fileObj = zip.file(fileName);
+                if (!fileObj) continue;
+                progressText.textContent = 'OCR识别第 ' + (i + 1) + '/' + imageFiles.length + ' 张图片...';
+                try {
+                    const imageData = await fileObj.async('blob');
+                    const result = await Tesseract.recognize(imageData, 'chi_sim+eng');
+                    const filenames = parseOcrFilenames(result.data.text);
+                    ocrFilenames.push(...filenames);
+                    console.log('图片' + (i+1) + '识别:', filenames);
+                } catch (err) {
+                    console.log('OCR失败:', err);
+                }
+            }
+            
+            // 用OCR结果生成目录
+            if (ocrFilenames.length > 0) {
+                const groups = ocrFilenames.map((name, i) => ({
+                    order: i + 1,
+                    name: name,
+                    pages: String(i + 1)
+                }));
+                imageGroups['截图目录'] = groups;
+            }
             const imgFolders = {};
             
             for (const filename of allFiles) {
@@ -224,7 +271,7 @@ async function parseZip(zip) {
                         权利人原始: cells[7] || '',
                         坐落: cells[8] || '',
                         权证号: cells[6] || '',
-                        folder: null
+                        folder: '截图目录'
                     });
                 });
             }
@@ -232,39 +279,9 @@ async function parseZip(zip) {
             const folders = Object.keys(imageGroups);
             if (folders.length === 1) {
                 const folder = folders[0];
-                for (const c of caseData) { c.folder = ocrFilenames.length > 0 ? '截图目录' : folder; }
+                for (const c of caseData) { c.folder = folder; }
             }
             showPreview();
-        }
-
-
-        function parseOcrFilenames(text) {
-            // 合并OCR分割的行
-            const mergedText = text.replace(/(登|证|记|申|请|书|合|同|图|平|户|分|房|屋|买|卖|登|不|动|产|申|请|批|书)\s*(?=\d)/g, '$1').replace(/\s*-(?=\d)/g, '-').trim();
-            
-            // 匹配文件名：0001-文件名-01jpg 或 0001-文件名
-            const filenamePattern = /(\d+[-_]?.+?)(?:\.(?:png|jpg|jpeg|gif|bmp))?(?=\s+|$)/gi;
-            const matches = mergedText.match(filenamePattern) || [];
-            
-            const filenames = matches.map(match => {
-                // 清理文件名
-                let filename = match.trim()
-                    .replace(/\.(?:png|jpg|jpeg|gif|bmp)$/i, '')
-                    .replace(/[-_]\d+$/, '')
-                    .replace(/[-_]+$/, '')
-                    .trim();
-                
-                // 修复OCR常见错误
-                filename = filename
-                    .replace(/([Il1])[a-zA-Z]/g, '$1')
-                    .replace(/[O0]/g, '0')
-                    .replace(/[。.]+$/, '')
-                    .replace(/^[\d.]+\s*/, '');
-                
-                return filename.length > 2 ? filename : null;
-            }).filter(Boolean);
-            
-            return [...new Set(filenames)];
         }
 
         function showPreview() {
