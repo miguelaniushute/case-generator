@@ -283,7 +283,26 @@ async function parseZip(zip) {
 
         
 
-        function parseOcrFilenames(text) {
+
+            // 如果还是没有目录，使用图片文件名
+            if (Object.keys(imageGroups).length === 0 && imageFiles.length > 0) {
+                console.log('使用图片文件名生成目录');
+                const groups = imageFiles.map((img, i) => {
+                    // 从路径提取文件名
+                    const nameParts = img.split('/');
+                    const fileName = nameParts[nameParts.length - 1];
+                    const baseName = fileName.replace(/\.[^/.]+$/, '');
+                    return {
+                        order: i + 1,
+                        name: baseName || '文件' + (i + 1),
+                        pages: String(i + 1)
+                    };
+                });
+                imageGroups['图片目录'] = groups;
+                for (const c of caseData) {
+                    c.folder = '图片目录';
+                }
+            }        function parseOcrFilenames(text) {
             const filenames = [];
             const lines = text.split('\n').filter(l => l.trim());
             for (const line of lines) {
