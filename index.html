@@ -90,12 +90,22 @@
         }
 
         async function handleZip(file) {
+            // 文件大小检查（100MB）
+            const maxSize = 100 * 1024 * 1024;
+            if (file.size > maxSize) {
+                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                alert(`文件过大（${sizeMB}MB），请压缩到100MB以下，或拆分成多个ZIP。\n\n建议：\n1. 减小图片文件\n2. 拆分成多个ZIP处理\n3. 使用xlsx格式而非xls`);
+                return;
+            }
+            
             if (!file.name.endsWith('.zip')) {
                 alert('请上传ZIP格式压缩包！');
                 return;
             }
+            
             fileInfo.classList.add('show');
-            fileList.innerHTML = '<li>📦 ' + file.name + '</li><li>⏳ 正在解析...</li>';
+            const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+            fileList.innerHTML = '<li>📦 ' + file.name + ' (' + sizeMB + 'MB)</li><li>⏳ 正在解析...</li><li>💡 大文件解析可能需要较长时间，请耐心等待...</li>';
             try {
                 const zip = await JSZip.loadAsync(file);
                 await parseZip(zip);
