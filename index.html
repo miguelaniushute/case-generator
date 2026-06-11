@@ -250,10 +250,12 @@ async function parseZip(zip) {
                     });
                     const caseNumber = cells[5] || '';
                     if (!caseNumber || caseNumber.length < 5 || caseNumber.startsWith('案卷号') || !caseNumber.startsWith('京')) return;
+                    const parsed = parseRightHolder(caseNumber, cells[7] || '');
                     caseData.push({
                         案卷号: caseNumber,
-                        权利人: cells[7] || '',
-                        义务人: cells[8] || '',
+                        权利人: parsed.权利人,
+                        义务人: parsed.义务人,
+                        权利人原始: cells[7] || '',
                         坐落: cells[9] || '',
                         权证号: cells[6] || '',
                         folder: null
