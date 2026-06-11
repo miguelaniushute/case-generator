@@ -187,10 +187,10 @@
             
             // 用OCR结果生成目录
             if (ocrFilenames.length > 0) {
-                const groups = ocrFilenames.map((name, i) => ({
-                    order: i + 1,
-                    name: name,
-                    pages: String(i + 1)
+                const groups = ocrFilenames.map((item, i) => ({
+                    order: typeof item === 'object' ? item.order : (i + 1),
+                    name: typeof item === 'object' ? item.name : item,
+                    pages: typeof item === 'object' ? item.pages : String(i + 1)
                 }));
                 imageGroups['截图目录'] = groups;
             }
