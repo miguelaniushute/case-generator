@@ -7,7 +7,14 @@
     <script src="./libs/jszip.min.js"></script>
     <script src="./libs/FileSaver.min.js"></script>
     <script src="./libs/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
+        .mode-btn{padding:12px 24px;border:2px solid #667eea;border-radius:8px;background:white;color:#667eea;font-size:14px;font-weight:bold;cursor:pointer;transition:all .3s}
+        .mode-btn:hover{background:#f0f2ff}
+        .mode-btn.active{background:#667eea;color:white}
+        .btn-small{padding:8px 16px;background:#28a745;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px}
+        .btn-small:hover{background:#218838}
+        .edit-textarea{width:100%;min-height:200px;padding:10px;border:2px solid #667eea;border-radius:8px;font-family:monospace;resize:vertical}
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;padding:20px}
         .container{max-width:900px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
@@ -49,8 +56,34 @@
 <body>
     <div class="container">
         <h1>📁 案卷材料生成器</h1>
-        <div class="upload-area" id="uploadArea"><div class="upload-icon">📦</div><div class="upload-text">点击选择ZIP压缩包上传</div><div class="upload-hint">包含：Excel表格 + 图片文件夹</div></div>
-        <input type="file" id="fileInput" accept=".zip">
+        
+        <!-- 模式切换 -->
+        <div style="display:flex; gap:10px; margin-bottom:20px; justify-content:center;">
+            <button id="modeZipBtn" class="mode-btn active" onclick="switchMode('zip')">📦 ZIP模式</button>
+            <button id="modeOcrBtn" class="mode-btn" onclick="switchMode('ocr')">📸 截图模式</button>
+        </div>
+        
+        <!-- ZIP上传区域 -->
+        <div id="zipMode">
+            <div class="upload-area" id="uploadArea"><div class="upload-icon">📦</div><div class="upload-text">点击选择ZIP压缩包上传</div><div class="upload-hint">包含：Excel表格 + 图片文件夹</div></div>
+            <input type="file" id="fileInput" accept=".zip">
+        </div>
+        
+        <!-- OCR上传区域 -->
+        <div id="ocrMode" style="display:none;">
+            <div class="upload-area" id="ocrUploadArea" style="border-color:#28a745;"><div class="upload-icon">📸</div><div class="upload-text">点击上传截图（包含文件名列表）</div><div class="upload-hint">截取文件列表页面，自动识别文件名</div></div>
+            <input type="file" id="ocrFileInput" accept="image/*">
+            
+            <div id="ocrPreview" style="margin-top:20px; display:none;">
+                <h4 style="color:#333; margin-bottom:10px;">📋 识别的文件名：</h4>
+                <div id="ocrResult" style="background:#f5f5f5; border-radius:8px; padding:15px; max-height:300px; overflow-y:auto; font-family:monospace; white-space:pre-wrap;"></div>
+                <div style="margin-top:10px; display:flex; gap:10px;">
+                    <button class="btn-small" onclick="editOcrResult()">✏️ 编辑</button>
+                    <button class="btn-small" onclick="confirmOcrResult()">✅ 确认使用</button>
+                </div>
+            </div>
+        </div>
+        
         <div class="file-info" id="fileInfo"><h3>📋 已加载文件</h3><ul id="fileList"></ul></div>
         <div class="preview" id="preview"><h3>📊 提取的案件列表</h3><div id="caseList"></div></div>
         <button class="btn" id="generateBtn" disabled>生成封面和目录</button>
@@ -61,9 +94,13 @@
     <script>
         let caseData = [];
         let imageGroups = {};
+        let ocrText = '';
+        let currentMode = 'zip';
         
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
+        const ocrUploadArea = document.getElementById('ocrUploadArea');
+        const ocrFileInput = document.getElementById('ocrFileInput');
         const fileInfo = document.getElementById('fileInfo');
         const fileList = document.getElementById('fileList');
         const preview = document.getElementById('preview');
@@ -73,6 +110,164 @@
         const progressFill = document.getElementById('progressFill');
         const progressText = document.getElementById('progressText');
         const successMsg = document.getElementById('successMsg');
+
+        // 模式切换
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('modeZipBtn').classList.toggle('active', mode === 'zip');
+            document.getElementById('modeOcrBtn').classList.toggle('active', mode === 'ocr');
+            document.getElementById('zipMode').style.display = mode === 'zip' ? 'block' : 'none';
+            document.getElementById('ocrMode').style.display = mode === 'ocr' ? 'block' : 'none';
+            
+            // 清空状态
+            caseData = [];
+            imageGroups = {};
+            ocrText = '';
+            fileInfo.classList.remove('show');
+            preview.classList.remove('show');
+            generateBtn.disabled = true;
+            document.getElementById('ocrPreview').style.display = 'none';
+        }
+        
+        // OCR模式事件
+        ocrUploadArea.addEventListener('click', function() { ocrFileInput.click(); });
+        ocrUploadArea.addEventListener('dragover', function(e) { e.preventDefault(); this.style.borderColor = '#218838'; this.style.background = '#e8f5e9'; });
+        ocrUploadArea.addEventListener('dragleave', function(e) { e.preventDefault(); this.style.borderColor = '#28a745'; this.style.background = '#f0f2ff'; });
+        ocrUploadArea.addEventListener('drop', function(e) { e.preventDefault(); this.style.borderColor = '#28a745'; this.style.background = '#f0f2ff'; const files = e.dataTransfer.files; if (files.length > 0) { handleOcrImage(files[0]); } });
+        ocrFileInput.addEventListener('change', function() { if (this.files.length > 0) { handleOcrImage(this.files[0]); } });
+        
+        // OCR处理
+        async function handleOcrImage(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('请上传图片文件！');
+                return;
+            }
+            
+            progress.classList.add('show');
+            progressText.textContent = '🔍 正在识别图片文字，请稍候...';
+            progressFill.style.width = '50%';
+            
+            try {
+                const result = await Tesseract.recognize(file, 'eng+chi', {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            progressFill.style.width = (50 + m.progress * 50) + '%';
+                        }
+                    }
+                });
+                
+                ocrText = result.data.text;
+                
+                // 显示识别结果
+                const ocrResult = document.getElementById('ocrResult');
+                ocrResult.textContent = ocrText;
+                document.getElementById('ocrPreview').style.display = 'block';
+                
+                progress.classList.remove('show');
+                
+                // 自动尝试解析
+                parseOcrText();
+                
+            } catch (err) {
+                progress.classList.remove('show');
+                alert('OCR识别失败：' + err.message);
+            }
+        }
+        
+        // 解析OCR文本，提取文件名
+        function parseOcrText() {
+            const lines = ocrText.split('\n').filter(l => l.trim());
+            const filenames = [];
+            
+            // 匹配常见的文件名格式：序号-资料名称-页号.扩展名
+            const filenameRegex = /^(\d+)[\-_\s]*(.+?)[\-_\s]*(\d+)?\.(jpg|jpeg|png|gif|bmp)$/i;
+            // 也匹配纯文件名格式
+            const simpleRegex = /(\d+)[\-_\s]([^\n]+?)(?:[\-_\s](\d+))?\.(jpg|jpeg|png|gif|bmp)/i;
+            
+            for (const line of lines) {
+                const trimmed = line.trim();
+                
+                // 尝试匹配文件名格式
+                let match = trimmed.match(filenameRegex) || trimmed.match(simpleRegex);
+                if (match) {
+                    filenames.push(trimmed);
+                    continue;
+                }
+                
+                // 尝试匹配纯数字开头的文件名
+                if (/^\d+[\-_\s].+\.(jpg|png|jpeg|gif|bmp)$/i.test(trimmed)) {
+                    filenames.push(trimmed);
+                }
+            }
+            
+            if (filenames.length > 0) {
+                // 格式化输出
+                const formatted = filenames.map((f, i) => `${i + 1}. ${f}`).join('\n');
+                document.getElementById('ocrResult').textContent = formatted;
+                ocrText = formatted;
+            }
+        }
+        
+        // 编辑OCR结果
+        function editOcrResult() {
+            const ocrResult = document.getElementById('ocrResult');
+            ocrResult.innerHTML = `<textarea class="edit-textarea" id="ocrEditArea">${ocrResult.textContent}</textarea>`;
+            document.querySelector('#ocrPreview .btn-small:first-child').textContent = '💾 保存';
+            document.querySelector('#ocrPreview .btn-small:first-child').onclick = saveOcrEdit;
+        }
+        
+        // 保存编辑
+        function saveOcrEdit() {
+            const editArea = document.getElementById('ocrEditArea');
+            ocrText = editArea.value;
+            document.getElementById('ocrResult').textContent = ocrText;
+            document.querySelector('#ocrPreview .btn-small:first-child').textContent = '✏️ 编辑';
+            document.querySelector('#ocrPreview .btn-small:first-child').onclick = editOcrResult;
+        }
+        
+        // 确认OCR结果
+        function confirmOcrResult() {
+            const lines = ocrText.split('\n').filter(l => l.trim());
+            
+            if (lines.length === 0) {
+                alert('未识别到有效文件名，请上传包含文件列表的截图！');
+                return;
+            }
+            
+            // 构建imageGroups
+            const groups = [];
+            lines.forEach((line, i) => {
+                const trimmed = line.replace(/^\d+\.?\s*/, '').trim();
+                if (trimmed) {
+                    // 解析文件名：序号-资料名称-页号.jpg
+                    const parts = trimmed.split(/[-_]/);
+                    const name = parts.length > 1 ? parts[1] : trimmed.split('.')[0];
+                    groups.push({
+                        order: groups.length + 1,
+                        name: name.trim(),
+                        pages: (parts[parts.length - 1] || '1').replace(/\.[^.]+$/, '')
+                    });
+                }
+            });
+            
+            if (groups.length > 0) {
+                imageGroups['OCR图片'] = groups;
+                caseData = [{
+                    案卷号: '京2026海ZS0000001',
+                    权利人原始: 'OCR识别',
+                    坐落: '(通过截图识别)',
+                    权证号: '(OCR模式)',
+                    folder: 'OCR图片'
+                }];
+                
+                showPreview();
+                fileInfo.classList.add('show');
+                fileList.innerHTML = `<li>📸 截图识别</li><li>✅ 识别到 ${groups.length} 个文件</li>`;
+                generateBtn.disabled = false;
+            } else {
+                alert('无法解析文件名，请检查截图内容或手动编辑！');
+            }
+        }
 
         uploadArea.addEventListener('click', function() { fileInput.click(); });
         uploadArea.addEventListener('dragover', function(e) { e.preventDefault(); this.style.borderColor = '#764ba2'; this.style.background = '#f0f2ff'; });
