@@ -108,7 +108,44 @@
             }
         }
 
-        async function parseZip(zip) {
+        
+        // 解析权利人：根据案卷号类型（ZS/ZX/ZM/CF）解析权利人文本
+        function parseRightHolder(案卷号, 权利人原始) {
+            const result = { 权利人: '', 义务人: '' };
+            if (!权利人原始) return result;
+            
+            if (案卷号.includes('ZS')) {
+                // 转让：原权利人/原义务人 或 转入方/转出方
+                const 原权利人 = 权利人原始.match(/原权利人\[([^\]]+)\]/g);
+                const 原义务人 = 权利人原始.match(/原义务人\[([^\]]+)\]/g);
+                const 转入方 = 权利人原始.match(/转入方\[([^\]]+)\]/g);
+                const 转出方 = 权利人原始.match(/转出方\[([^\]]+)\]/g);
+                
+                if (原权利人) result.权利人 = 原权利人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                else if (转入方) result.权利人 = 转入方.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                
+                if (原义务人) result.义务人 = 原义务人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                else if (转出方) result.义务人 = 转出方.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                
+            } else if (案卷号.includes('ZX') || 案卷号.includes('ZM')) {
+                // 抵押：抵押权人/抵押人
+                const 抵押权人 = 权利人原始.match(/抵押权人\[([^\]]+)\]/g);
+                const 抵押人 = 权利人原始.match(/抵押人\[([^\]]+)\]/g);
+                if (抵押权人) result.权利人 = 抵押权人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                if (抵押人) result.义务人 = 抵押人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                
+            } else if (案卷号.includes('CF')) {
+                // 查封：执行人/被执行人
+                const 执行人 = 权利人原始.match(/(?<!被)执行人\[([^\]]+)\]/g);
+                const 被执行人 = 权利人原始.match(/被执行人\[([^\]]+)\]/g);
+                if (执行人) result.权利人 = 执行人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+                if (被执行人) result.义务人 = 被执行人.map(m => m.match(/\[([^\]]+)\]/)[1]).join('、');
+            }
+            
+            return result;
+        }
+
+async function parseZip(zip) {
             caseData = [];
             imageGroups = {};
             ocrFilenames = [];
