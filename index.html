@@ -60,7 +60,6 @@
     </div>
     <script>
         let caseData = [];
-        let ocrFilenames = [];
         let imageGroups = {};
         
         const uploadArea = document.getElementById('uploadArea');
@@ -108,8 +107,7 @@
             }
         }
 
-        
-        // 解析权利人：根据案卷号类型（ZS/ZX/ZM/CF）解析权利人文本
+                // 解析权利人：根据案卷号类型（ZS/ZX/ZM/CF）解析权利人文本
         function parseRightHolder(案卷号, 权利人原始) {
             const result = { 权利人: '', 义务人: '' };
             if (!权利人原始) return result;
@@ -148,39 +146,7 @@
 async function parseZip(zip) {
             caseData = [];
             imageGroups = {};
-            ocrFilenames = [];
-            
-            // 首先获取所有文件列表
             const allFiles = Object.keys(zip.files);
-            console.log('ZIP中所有文件:', allFiles);
-            
-            // 查找所有图片文件进行OCR识别
-            const imageFiles = allFiles.filter(f => 
-                !f.endsWith('/') && 
-                /\.(png|jpg|jpeg|gif|bmp)$/i.test(f)
-            ).sort();
-            console.log('找到图片文件:', imageFiles);
-            
-            if (imageFiles.length > 0) {
-                for (let i = 0; i < imageFiles.length; i++) {
-                    const fileName = imageFiles[i];
-                    const fileObj = zip.file(fileName);
-                    if (!fileObj) {
-                        console.log('找不到文件:', fileName);
-                        continue;
-                    }
-                    progressText.textContent = 'OCR识别第 ' + (i + 1) + '/' + imageFiles.length + ' 张图片...';
-                    try {
-                        const imageData = await fileObj.async('blob');
-                        const result = await Tesseract.recognize(imageData, 'chi_sim+eng');
-                        const filenames = parseOcrFilenames(result.data.text);
-                        ocrFilenames = [...new Set([...ocrFilenames, ...filenames])];
-                    } catch (err) {
-                        console.log('OCR失败:', err.message);
-                    }
-                }
-                progressText.textContent = '识别到 ' + ocrFilenames.length + ' 个文件名';
-            }
             const imgFolders = {};
             
             for (const filename of allFiles) {
@@ -233,7 +199,7 @@ async function parseZip(zip) {
                 if (!worksheet) continue;
                 
                 worksheet.eachRow((row, rowNum) => {
-                    if (rowNum <= 1) return;
+                    if (rowNum <= 4) return;
                     const cells = [];
                     row.eachCell((cell, colNum) => {
                         const val = cell.value;
@@ -250,73 +216,23 @@ async function parseZip(zip) {
                     });
                     const caseNumber = cells[5] || '';
                     if (!caseNumber || caseNumber.length < 5 || caseNumber.startsWith('案卷号') || !caseNumber.startsWith('京')) return;
-                    const parsed = parseRightHolder(caseNumber, cells[7] || '');
                     caseData.push({
                         案卷号: caseNumber,
-                        权利人: parsed.权利人,
-                        义务人: parsed.义务人,
-                        权利人原始: cells[7] || '',
-                        坐落: cells[8] || '',
+                        权利人: '',
+                        义务人: '',
+                        坐落: cells[9] || '',
                         权证号: cells[6] || '',
                         folder: null
                     });
                 });
             }
             
-            // 如果有OCR识别的文件名，使用OCR结果
-            if (ocrFilenames.length > 0) {
-                const groups = ocrFilenames.map((name, i) => ({
-                    order: i + 1,
-                    name: name,
-                    pages: String(i + 1)
-                }));
-                imageGroups['截图目录'] = groups;
-                for (const c of caseData) { c.folder = '截图目录'; }
-            } else {
-                const folders = Object.keys(imageGroups);
-                if (folders.length === 1) {
+            const folders = Object.keys(imageGroups);
+            if (folders.length === 1) {
                 const folder = folders[0];
                 for (const c of caseData) { c.folder = folder; }
             }
-            }
-        }
-
-        
-
-
-            // 如果还是没有目录，使用图片文件名
-            if (Object.keys(imageGroups).length === 0 && imageFiles.length > 0) {
-                console.log('使用图片文件名生成目录');
-                const groups = imageFiles.map((img, i) => {
-                    // 从路径提取文件名
-                    const nameParts = img.split('/');
-                    const fileName = nameParts[nameParts.length - 1];
-                    const baseName = fileName.replace(/\.[^/.]+$/, '');
-                    return {
-                        order: i + 1,
-                        name: baseName || '文件' + (i + 1),
-                        pages: String(i + 1)
-                    };
-                });
-                imageGroups['图片目录'] = groups;
-                for (const c of caseData) {
-                    c.folder = '图片目录';
-                }
-            }        function parseOcrFilenames(text) {
-            const filenames = [];
-            const lines = text.split('\n').filter(l => l.trim());
-            for (const line of lines) {
-                const trimmed = line.trim().replace(/[|Il1][a-zA-Z]/g, '1').replace(/[O0]/g, '0').replace(/[。.]+$/, '').replace(/^[\d.]+\s*/, '').trim();
-                if (trimmed.length < 2) continue;
-                const match = trimmed.match(/(\d+[-_]?.+?)(?:\.(?:png|jpg|jpeg|gif|bmp))?$/i);
-                if (match) {
-                    let filename = match[1].trim().replace(/[-_]\d+$/, '');
-                    if (filename.length > 0 && filename.length < 100) filenames.push(filename);
-                } else if (trimmed.length > 2 && trimmed.length < 50 && /[\u4e00-\u9fa5]/.test(trimmed)) {
-                    filenames.push(trimmed);
-                }
-            }
-            return filenames;
+            showPreview();
         }
 
         function showPreview() {
