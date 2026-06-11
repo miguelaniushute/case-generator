@@ -163,7 +163,7 @@
                 if (!worksheet) continue;
                 
                 worksheet.eachRow((row, rowNum) => {
-                    if (rowNum <= 4) return;
+                    if (rowNum === 1) return; // 只跳过表头
                     const cells = [];
                     row.eachCell((cell, colNum) => {
                         const val = cell.value;
