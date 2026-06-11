@@ -150,19 +150,27 @@ async function parseZip(zip) {
             imageGroups = {};
             ocrFilenames = [];
             
+            // 首先获取所有文件列表
+            console.log('ZIP中所有文件:', allFiles);
             
             // 查找所有图片文件进行OCR识别
             const imageFiles = allFiles.filter(f => 
                 !f.endsWith('/') && 
                 /\.(png|jpg|jpeg|gif|bmp)$/i.test(f)
             ).sort();
+            console.log('找到图片文件:', imageFiles);
             
             if (imageFiles.length > 0) {
-
                 for (let i = 0; i < imageFiles.length; i++) {
+                    const fileName = imageFiles[i];
+                    const fileObj = zip.file(fileName);
+                    if (!fileObj) {
+                        console.log('找不到文件:', fileName);
+                        continue;
+                    }
                     progressText.textContent = 'OCR识别第 ' + (i + 1) + '/' + imageFiles.length + ' 张图片...';
                     try {
-                        const imageData = await zip.file(imageFiles[i]).async('blob');
+                        const imageData = await fileObj.async('blob');
                         const result = await Tesseract.recognize(imageData, 'chi_sim+eng');
                         const filenames = parseOcrFilenames(result.data.text);
                         ocrFilenames = [...new Set([...ocrFilenames, ...filenames])];
@@ -172,7 +180,6 @@ async function parseZip(zip) {
                 }
                 progressText.textContent = '识别到 ' + ocrFilenames.length + ' 个文件名';
             }
-            const allFiles = Object.keys(zip.files);
             const imgFolders = {};
             
             for (const filename of allFiles) {
