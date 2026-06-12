@@ -54,9 +54,9 @@
 <body>
     <div class="container">
         <h1>📁 案卷材料生成器</h1>
-        <div class="upload-area" id="uploadArea"><div class="upload-icon">📦</div><div class="upload-text">点击选择文件夹</div><div class="upload-hint">包含：表格.xlsx + 图片文件（001-资料名称-页码.jpg）</div></div>
-        <input type="file" id="fileInput" accept=".zip">
+        <div class="upload-area" id="uploadArea"><div class="upload-icon">📦</div><div class="upload-text">点击选择文件夹</div><div class="upload-hint">包含：表格.xlsx + 子文件夹（每个子文件夹一个案件）</div></div>
         
+        <div class="file-info" id="fileInfo"><h3>📋 已加载文件夹</h3><ul id="fileList"></ul></div>
         <div class="preview" id="preview"><h3>📊 提取的案件列表</h3><div id="caseList"></div></div>
         <button class="btn" id="generateBtn" disabled>生成封面和目录</button>
         <div class="progress" id="progress"><div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div><div class="progress-text" id="progressText">准备中...</div></div>
