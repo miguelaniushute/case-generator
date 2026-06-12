@@ -49,7 +49,7 @@
         
         <div class="step">
             <h3>步骤1：上传Excel</h3>
-            <div class="upload-area" id="excelArea">
+            <div class="upload-area" id="excelArea" onclick="document.getElementById('excelInput').click()">
                 <div class="upload-icon">📊</div>
                 <div class="upload-text">点击上传表格.xlsx</div>
             </div>
@@ -58,7 +58,7 @@
         
         <div class="step">
             <h3>步骤2：选择图片文件夹</h3>
-            <div class="upload-area" id="folderArea">
+            <div class="upload-area" id="folderArea" onclick="selectFolder()">
                 <div class="upload-icon">📂</div>
                 <div class="upload-text">点击选择图片文件夹</div>
                 <div class="upload-hint">包含：001-资料名称-页码.jpg 格式的图片</div>
