@@ -23,6 +23,11 @@
         .file-info h3{color:#2e7d32;font-size:14px;margin-bottom:10px}
         .file-info ul{color:#555;font-size:13px;padding-left:20px}
         .file-info li{margin-bottom:5px}
+        .folder-preview{background:#f8f9ff;border-radius:8px;padding:15px;margin-top:15px;display:none}
+        .folder-preview.show{display:block}
+        .folder-preview h4{color:#667eea;margin-bottom:8px}
+        .folder-preview ul{color:#666;font-size:12px;padding-left:20px;max-height:150px;overflow-y:auto}
+        .folder-preview li{margin-bottom:3px}
         .preview{background:#f5f5f5;border-radius:8px;padding:20px;margin-bottom:20px;display:none;max-height:400px;overflow-y:auto}
         .preview.show{display:block}
         .preview h3{color:#333;margin-bottom:15px}
@@ -49,14 +54,22 @@
 <body>
     <div class="container">
         <h1>📁 案卷材料生成器</h1>
-        <div class="upload-area" id="uploadArea"><div class="upload-icon">📦</div><div class="upload-text">点击选择ZIP压缩包上传</div><div class="upload-hint">包含：Excel表格 + 图片文件夹</div></div>
+        <div class="upload-area" id="uploadArea"><div class="upload-icon">📦</div><div class="upload-text">点击选择文件夹</div><div class="upload-hint">包含：表格.xlsx + 图片文件（001-资料名称-页码.jpg）</div></div>
         <input type="file" id="fileInput" accept=".zip">
-        <div class="file-info" id="fileInfo"><h3>📋 已加载文件</h3><ul id="fileList"></ul></div>
+        
         <div class="preview" id="preview"><h3>📊 提取的案件列表</h3><div id="caseList"></div></div>
         <button class="btn" id="generateBtn" disabled>生成封面和目录</button>
         <div class="progress" id="progress"><div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div><div class="progress-text" id="progressText">准备中...</div></div>
         <div class="success-msg" id="successMsg"><h3>✅ 生成完成！</h3><p>文件已自动下载</p></div>
-        <div class="help"><h4>💡 使用说明</h4><ul><li>上传包含 <strong>Excel表格</strong> 和 <strong>图片文件夹</strong> 的压缩包</li><li>Excel表格需包含：案卷号、权利人、义务人、坐落、权证号等字段</li><li>图片命名格式：<code>序号-资料名称-页号.jpg</code></li><li>系统会自动为每个案件生成封面(Excel)和目录(Word)</li></ul></div>
+        <div class="help"><h4>💡 使用说明</h4><ul>
+<li>选择一个<strong>包含以下内容的文件夹</strong>：</li>
+<li>📊 <code>表格.xlsx</code> - 包含案卷号、权利人、坐落等信息的Excel</li>
+<li>🖼️ <code>001-资料名称-01.jpg</code> 格式的图片文件</li>
+<li>系统会自动：</li>
+<li>1. 用文件夹名匹配Excel中的业务编号</li>
+<li>2. 解析图片文件名生成目录</li>
+<li>3. 生成封面(Excel)和目录(Word)</li>
+</ul></div>
     </div>
     <script>
         let caseData = [];
@@ -122,11 +135,8 @@
             return [...new Set(filenames)];
         }
 
-        uploadArea.addEventListener('click', function() { fileInput.click(); });
-        uploadArea.addEventListener('dragover', function(e) { e.preventDefault(); this.style.borderColor = '#764ba2'; this.style.background = '#f0f2ff'; });
-        uploadArea.addEventListener('dragleave', function(e) { e.preventDefault(); this.style.borderColor = '#667eea'; this.style.background = '#f8f9ff'; });
-        uploadArea.addEventListener('drop', function(e) { e.preventDefault(); this.style.borderColor = '#667eea'; this.style.background = '#f8f9ff'; const files = e.dataTransfer.files; if (files.length > 0) { handleZip(files[0]); } });
-        fileInput.addEventListener('change', function() { if (this.files.length > 0) { handleZip(this.files[0]); } });
+        uploadArea.addEventListener('click', selectFolder);
+        generateBtn.addEventListener('click', generateAll);
         generateBtn.addEventListener('click', generateAll);
 
         function b64ToArrayBuffer(b64) {
@@ -137,150 +147,168 @@
             return buf.buffer;
         }
 
-        async function handleZip(file) {
-            if (!file.name.endsWith('.zip')) {
-                alert('请上传ZIP格式压缩包！');
-                return;
-            }
-            fileInfo.classList.add('show');
-            fileList.innerHTML = '<li>📦 ' + file.name + '</li><li>⏳ 正在解析...</li>';
+        // 文件夹选择函数
+        async function selectFolder() {
             try {
-                const zip = await JSZip.loadAsync(file);
-                await parseZip(zip);
-                fileList.innerHTML = '<li>✅ 解析完成，已识别 ' + caseData.length + ' 个案件</li>';
-                generateBtn.disabled = false;
+                const dirHandle = await window.showDirectoryPicker();
+                await readFolder(dirHandle);
             } catch (err) {
-                fileList.innerHTML = '<li>❌ 解析失败：' + err.message + '</li>';
-                alert('解压失败：' + err.message);
+                if (err.name !== 'AbortError') {
+                    alert('选择文件夹失败：' + err.message);
+                }
             }
         }
 
-        async function parseZip(zip) {
-            caseData = [];
-            imageGroups = {};
-            const ocrFilenames = [];
+        // 读取文件夹内容
+        async function readFolder(dirHandle) {
+            fileInfo.classList.add('show');
+            fileList.innerHTML = '<li>⏳ 正在读取文件夹...</li>';
+            preview.classList.remove('show');
+            generateBtn.disabled = true;
             
-            // 获取所有文件
-            
-            // 查找图片文件
-            const imageFiles = allFiles.filter(f => 
-                !f.endsWith('/') && 
-                /\.(png|jpg|jpeg|gif|bmp)$/i.test(f)
-            ).sort();
-            
-            // OCR识别每张图片
-            for (let i = 0; i < imageFiles.length; i++) {
-                const fileName = imageFiles[i];
-                const fileObj = zip.file(fileName);
-                if (!fileObj) continue;
-                progressText.textContent = 'OCR识别第 ' + (i + 1) + '/' + imageFiles.length + ' 张图片...';
-                try {
-                    const imageData = await fileObj.async('blob');
-                    const result = await Tesseract.recognize(imageData, 'chi_sim+eng');
-                    const filenames = parseOcrFilenames(result.data.text);
-                    ocrFilenames.push(...filenames);
-                    console.log('图片' + (i+1) + '识别:', filenames);
-                } catch (err) {
-                    console.log('OCR失败:', err);
-                }
-            }
-            
-            // 用OCR结果生成目录
-            if (ocrFilenames.length > 0) {
-                const groups = ocrFilenames.map((item, i) => ({
-                    order: typeof item === 'object' ? item.order : (i + 1),
-                    name: typeof item === 'object' ? item.name : item,
-                    pages: typeof item === 'object' ? item.pages : String(i + 1)
-                }));
-                imageGroups['截图目录'] = groups;
-            }
-            const imgFolders = {};
-            
-            for (const filename of allFiles) {
-                if (filename.endsWith('/')) continue;
-                const match = filename.match(/^(.+?)\/(\d+)-(.+)-(\d+)\.(jpg|jpeg|png)$/i);
-                if (match) {
-                    const folder = match[1];
-                    const seq = parseInt(match[2]);
-                    const name = match[3];
-                    const page = parseInt(match[4]);
-                    if (!imgFolders[folder]) imgFolders[folder] = [];
-                    imgFolders[folder].push({ seq: seq, name: name, page: page, fullPath: filename });
-                }
-            }
-            
-            for (const folder of Object.keys(imgFolders)) {
-                const images = imgFolders[folder].sort((a, b) => a.seq - b.seq);
-                const groups = [];
-                let currentName = null;
-                let startSeq = null;
-                let count = 0;
-                for (const img of images) {
-                    if (img.name !== currentName) {
-                        if (currentName !== null) {
-                            groups.push({ order: groups.length + 1, name: currentName, pages: startSeq + '-' + (startSeq + count - 1) });
+            try {
+                currentFolderName = dirHandle.name;
+                fileList.innerHTML = '<li>📂 文件夹：' + currentFolderName + '</li><li>⏳ 正在解析...</li>';
+                
+                const allFiles = [];
+                const imageFiles = [];
+                let excelFile = null;
+                
+                for await (const entry of dirHandle.values()) {
+                    if (entry.kind === 'file') {
+                        const file = await entry.getFile();
+                        allFiles.push({ name: entry.name, file: file });
+                        
+                        if (/\.xlsx?$/i.test(entry.name)) {
+                            excelFile = { name: entry.name, file: file };
                         }
-                        currentName = img.name;
-                        startSeq = img.seq;
-                        count = 1;
-                    } else {
-                        count++;
+                        
+                        if (/\.(png|jpg|jpeg|gif|bmp)$/i.test(entry.name)) {
+                            imageFiles.push({ name: entry.name, file: file });
+                        }
                     }
                 }
-                if (currentName !== null) {
-                    groups.push({ order: groups.length + 1, name: currentName, pages: startSeq + '-' + (startSeq + count - 1) });
+                
+                await parseData(allFiles, imageFiles, excelFile);
+                
+                if (caseData.length > 0) {
+                    fileList.innerHTML = '<li>✅ 解析完成！</li><li>📂 文件夹：' + currentFolderName + '</li><li>📊 识别到 ' + caseData.length + ' 个案件</li>';
+                    generateBtn.disabled = false;
+                } else {
+                    fileList.innerHTML = '<li>⚠️ 未找到匹配的案件</li><li>📂 文件夹名（业务编号）：' + currentFolderName + '</li><li>💡 请检查Excel中是否有对应的业务编号</li>';
                 }
-                imageGroups[folder] = groups;
+                
+            } catch (err) {
+                fileList.innerHTML = '<li>❌ 读取失败：' + err.message + '</li>';
+                console.error(err);
+            }
+        }
+
+        // 解析数据
+        async function parseData(allFiles, imageFiles, excelFile) {
+            caseData = [];
+            imageGroups = {};
+            
+            // 1. 解析图片文件名生成目录
+            const imgRecords = [];
+            for (const img of imageFiles) {
+                const match = img.name.match(/^(\d+)-(.+)-(\d+)\.(png|jpg|jpeg|gif|bmp)$/i);
+                if (match) {
+                    imgRecords.push({
+                        seq: parseInt(match[1]),
+                        name: match[2],
+                        page: parseInt(match[3]),
+                        fullName: img.name
+                    });
+                }
             }
             
-            const excelFiles = allFiles.filter(f => !f.endsWith('/') && (f.endsWith('.xlsx') || f.endsWith('.xls')));
-            for (const excelFile of excelFiles) {
-                const content = await zip.file(excelFile).async('arraybuffer');
-                const workbook = new ExcelJS.Workbook();
-                try {
-                    await workbook.xlsx.load(content);
-                } catch (err) {
-                    continue;
+            imgRecords.sort((a, b) => a.seq - b.seq);
+            
+            // 合并连续页数
+            const groups = [];
+            let currentName = null;
+            let startSeq = null;
+            let count = 0;
+            
+            for (const img of imgRecords) {
+                if (img.name !== currentName) {
+                    if (currentName !== null) {
+                        groups.push({
+                            order: groups.length + 1,
+                            name: currentName,
+                            pages: startSeq + '-' + (startSeq + count - 1)
+                        });
+                    }
+                    currentName = img.name;
+                    startSeq = img.seq;
+                    count = 1;
+                } else {
+                    count++;
                 }
-                const worksheet = workbook.getWorksheet(1);
-                if (!worksheet) continue;
-                
-                worksheet.eachRow((row, rowNum) => {
-                    if (rowNum <= 1) return;
-                    const cells = [];
-                    row.eachCell((cell, colNum) => {
-                        const val = cell.value;
-                        let cellVal = '';
-                        if (typeof val === 'object' && val !== null) {
-                            if (val.result !== undefined) cellVal = val.result;
-                            else if (val.value !== undefined) cellVal = val.value;
-                            else if (val.richText && Array.isArray(val.richText)) cellVal = val.richText.map(x => x.text || '').join('');
-                            else if (val.text) cellVal = val.text;
-                        } else {
-                            cellVal = val;
-                        }
-                        cells.push(String(cellVal || '').trim());
-                    });
-                    const caseNumber = cells[5] || '';
-                    if (!caseNumber || caseNumber.length < 5 || caseNumber.startsWith('案卷号') || !caseNumber.startsWith('京')) return;
-                    const parsed = parseRightHolder(caseNumber, cells[7] || '');
-                    caseData.push({
-                        案卷号: caseNumber,
-                        权利人: parsed.权利人,
-                        义务人: parsed.义务人,
-                        权利人原始: cells[7] || '',
-                        坐落: cells[8] || '',
-                        权证号: cells[6] || '',
-                        folder: '截图目录'
-                    });
+            }
+            if (currentName !== null) {
+                groups.push({
+                    order: groups.length + 1,
+                    name: currentName,
+                    pages: startSeq + '-' + (startSeq + count - 1)
                 });
             }
             
-            const folders = Object.keys(imageGroups);
-            if (folders.length === 1) {
-                const folder = folders[0];
-                for (const c of caseData) { c.folder = folder; }
+            imageGroups[currentFolderName] = groups;
+            
+            // 2. 解析Excel获取封面数据
+            if (excelFile) {
+                try {
+                    const workbook = new ExcelJS.Workbook();
+                    await workbook.xlsx.load(excelFile.file);
+                    const worksheet = workbook.getWorksheet(1);
+                    
+                    if (worksheet) {
+                        worksheet.eachRow((row, rowNum) => {
+                            if (rowNum <= 1) return;
+                            
+                            const cells = [];
+                            row.eachCell((cell, colNum) => {
+                                const val = cell.value;
+                                let cellVal = '';
+                                if (typeof val === 'object' && val !== null) {
+                                    if (val.result !== undefined) cellVal = val.result;
+                                    else if (val.value !== undefined) cellVal = val.value;
+                                    else if (val.richText && Array.isArray(val.richText)) cellVal = val.richText.map(x => x.text || '').join('');
+                                    else if (val.text) cellVal = val.text;
+                                } else {
+                                    cellVal = val;
+                                }
+                                cells.push(String(cellVal || '').trim());
+                            });
+                            
+                            // 列索引：A列(0)=序号, B列(1)=业务编号, E列(4)=案卷号, F列(5)=权证号, G列(6)=权利人原始, H列(7)=坐落
+                            const 业务编号 = cells[1] || '';
+                            const 案卷号 = cells[4] || '';
+                            
+                            // 用文件夹名匹配Excel中的业务编号
+                            if (业务编号 === currentFolderName) {
+                                const parsed = parseRightHolder(案卷号, cells[6] || '');
+                                caseData.push({
+                                    序号: cells[0] || '',
+                                    业务编号: 业务编号,
+                                    案卷号: 案卷号,
+                                    权利人: parsed.权利人,
+                                    义务人: parsed.义务人,
+                                    权利人原始: cells[6] || '',
+                                    坐落: cells[7] || '',
+                                    权证号: cells[5] || '',
+                                    folder: currentFolderName
+                                });
+                            }
+                        });
+                    }
+                } catch (err) {
+                    console.error('Excel解析失败:', err);
+                }
             }
+            
             showPreview();
         }
 
