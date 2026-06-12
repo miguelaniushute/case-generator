@@ -159,7 +159,7 @@
             }
         }
 
-        // 读取文件夹内容
+        // 读取文件夹内容（支持子文件夹）
         async function readFolder(dirHandle) {
             fileInfo.classList.add('show');
             fileList.innerHTML = '<li>⏳ 正在读取文件夹...</li>';
@@ -170,26 +170,44 @@
                 currentFolderName = dirHandle.name;
                 fileList.innerHTML = '<li>📂 文件夹：' + currentFolderName + '</li><li>⏳ 正在解析...</li>';
                 
-                const allFiles = [];
-                const imageFiles = [];
+                // 查找Excel和子文件夹
                 let excelFile = null;
+                const subFolders = {};
                 
                 for await (const entry of dirHandle.values()) {
                     if (entry.kind === 'file') {
-                        const file = await entry.getFile();
-                        allFiles.push({ name: entry.name, file: file });
-                        
                         if (/\.xlsx?$/i.test(entry.name)) {
-                            excelFile = { name: entry.name, file: file };
+                            excelFile = { name: entry.name, file: await entry.getFile() };
+                            console.log('找到Excel:', entry.name);
+                        }
+                    } else if (entry.kind === 'directory') {
+                        const folderName = entry.name;
+                        const imageFiles = [];
+                        
+                        try {
+                            for await (const fileEntry of entry.values()) {
+                                if (fileEntry.kind === 'file') {
+                                    const fileName = fileEntry.name;
+                                    if (/\.(png|jpg|jpeg|gif|bmp)$/i.test(fileName)) {
+                                        imageFiles.push({ name: fileName, file: await fileEntry.getFile() });
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.log('读取子文件夹失败:', folderName, e);
                         }
                         
-                        if (/\.(png|jpg|jpeg|gif|bmp)$/i.test(entry.name)) {
-                            imageFiles.push({ name: entry.name, file: file });
+                        if (imageFiles.length > 0) {
+                            subFolders[folderName] = imageFiles;
+                            console.log('子文件夹:', folderName, '有', imageFiles.length, '张图片');
                         }
                     }
                 }
                 
-                await parseData(allFiles, imageFiles, excelFile);
+                console.log('Excel:', excelFile ? excelFile.name : '无');
+                console.log('子文件夹数量:', Object.keys(subFolders).length);
+                
+                await parseData(excelFile, subFolders);
                 
                 if (caseData.length > 0) {
                     fileList.innerHTML = '<li>✅ 解析完成！</li><li>📂 文件夹：' + currentFolderName + '</li><li>📊 识别到 ' + caseData.length + ' 个案件</li>';
@@ -205,57 +223,62 @@
         }
 
         // 解析数据
-        async function parseData(allFiles, imageFiles, excelFile) {
+        async function parseData(excelFile, subFolders) {
             caseData = [];
             imageGroups = {};
             
-            // 1. 解析图片文件名生成目录
-            const imgRecords = [];
-            for (const img of imageFiles) {
-                const match = img.name.match(/^(\d+)-(.+)-(\d+)\.(png|jpg|jpeg|gif|bmp)$/i);
-                if (match) {
-                    imgRecords.push({
-                        seq: parseInt(match[1]),
-                        name: match[2],
-                        page: parseInt(match[3]),
-                        fullName: img.name
-                    });
-                }
-            }
+            console.log('开始解析数据...');
             
-            imgRecords.sort((a, b) => a.seq - b.seq);
-            
-            // 合并连续页数
-            const groups = [];
-            let currentName = null;
-            let startSeq = null;
-            let count = 0;
-            
-            for (const img of imgRecords) {
-                if (img.name !== currentName) {
-                    if (currentName !== null) {
-                        groups.push({
-                            order: groups.length + 1,
-                            name: currentName,
-                            pages: startSeq + '-' + (startSeq + count - 1)
+            // 1. 解析每个子文件夹的图片
+            for (const [folderName, imageFiles] of Object.entries(subFolders)) {
+                const imgRecords = [];
+                for (const img of imageFiles) {
+                    const match = img.name.match(/^(\d+)-(.+)-(\d+)\.(png|jpg|jpeg|gif|bmp)$/i);
+                    if (match) {
+                        imgRecords.push({
+                            seq: parseInt(match[1]),
+                            name: match[2],
+                            page: parseInt(match[3]),
+                            fullName: img.name
                         });
                     }
-                    currentName = img.name;
-                    startSeq = img.seq;
-                    count = 1;
-                } else {
-                    count++;
                 }
+                
+                imgRecords.sort((a, b) => a.seq - b.seq);
+                
+                // 合并连续页数
+                const groups = [];
+                let currentName = null;
+                let startSeq = null;
+                let count = 0;
+                
+                for (const img of imgRecords) {
+                    if (img.name !== currentName) {
+                        if (currentName !== null) {
+                            groups.push({
+                                order: groups.length + 1,
+                                name: currentName,
+                                pages: startSeq + '-' + (startSeq + count - 1)
+                            });
+                        }
+                        currentName = img.name;
+                        startSeq = img.seq;
+                        count = 1;
+                    } else {
+                        count++;
+                    }
+                }
+                if (currentName !== null) {
+                    groups.push({
+                        order: groups.length + 1,
+                        name: currentName,
+                        pages: startSeq + '-' + (startSeq + count - 1)
+                    });
+                }
+                
+                imageGroups[folderName] = groups;
+                console.log('子文件夹', folderName, '解析出', groups.length, '种资料');
             }
-            if (currentName !== null) {
-                groups.push({
-                    order: groups.length + 1,
-                    name: currentName,
-                    pages: startSeq + '-' + (startSeq + count - 1)
-                });
-            }
-            
-            imageGroups[currentFolderName] = groups;
             
             // 2. 解析Excel获取封面数据
             if (excelFile) {
